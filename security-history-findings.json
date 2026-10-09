@@ -1,0 +1,14 @@
+[
+  {
+    "commit": "cb42ae912ce3995a00fe3ee40da897309440720a 2025-07-31T18:57:58-03:00",
+    "files": [
+      "migrarDados/script.js"
+    ]
+  },
+  {
+    "commit": "501537bfb1d30b355318b16229e68c01b07d15c4 2025-07-31T18:56:22-03:00",
+    "files": [
+      "migrarDados/script.js"
+    ]
+  }
+]

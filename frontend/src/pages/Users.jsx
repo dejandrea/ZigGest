@@ -1,0 +1,10 @@
+import React,{useState,useEffect} from 'react';
+import {supabase} from '../services/supabase';
+import {useAuth} from '../auth/AuthContext';
+import Header from '../components/Header';
+const empty={id:null,email:'',nome:'',role:'OPERATOR',enabled:true};
+export default function Users(){const {isMaster}=useAuth();const [rows,setRows]=useState([]),[form,setForm]=useState(empty),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+async function load(){const {data,error}=await supabase.rpc('admin_list_accounts');if(error)throw error;setRows(data||[]);}
+useEffect(()=>{load().catch(()=>setError('Falha ao consultar usuarios'));},[]);
+async function save(e){e.preventDefault();setBusy(true);setError('');try{const {error}=await supabase.rpc('admin_save_account',{p_id:form.id,p_email:form.email,p_nome:form.nome,p_role:form.role,p_enabled:form.enabled});if(error)throw error;setForm(empty);await load();}catch(e){setError(e.message);}finally{setBusy(false);}}
+return <div className='body'><Header/><h1>Usuarios</h1>{error&&<p role='alert'>{error}</p>}<table><thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Acesso</th><th>Acoes</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td>{r.nome}</td><td>{r.email}</td><td>{r.role}</td><td>{r.enabled?'Ativo':'Desativado'}</td><td><button onClick={()=>setForm({...r})}>Editar</button></td></tr>)}</tbody></table><form onSubmit={save}><input aria-label='Nome' value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} required/><input aria-label='Email' type='email' value={form.email} disabled={form.registered} onChange={e=>setForm({...form,email:e.target.value})} required/><select aria-label='Perfil' value={form.role} onChange={e=>setForm({...form,role:e.target.value})}><option value='OPERATOR'>Operador</option><option value='ADMIN'>Administrador</option>{isMaster&&<option value='MASTER'>Master</option>}</select><label><input type='checkbox' checked={form.enabled} onChange={e=>setForm({...form,enabled:e.target.checked})}/>Acesso ativo</label><button disabled={busy}>Salvar acesso</button></form></div>;}

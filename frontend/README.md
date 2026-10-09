@@ -1,4 +1,5 @@
-# Frontend React + Vite
+# Frontend Vite + Supabase
 
-Node.js >=22.12. Na pasta frontend: npm install, npm run dev, npm run build, npm test.
-Servidor local na porta 5173. Build em dist/. Configure fallback SPA para index.html.
+Node >=22.12. npm install; npm run dev; npm run build; npm test.
+Configure VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY em .env.local. Nunca use secret/service_role no navegador.
+Roles MASTER/ADMIN/OPERATOR com confirmacao de email e aprovacao previa. Migrations em ../supabase/migrations.

@@ -36,7 +36,7 @@ const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
             setValor(formatarMoedaBanco(conta.valor));
             setVencimento(conta.dataVencimento?.slice(0, 10));
             setTipo(conta.tipo);
-            setObservacoes(conta.Observacao || '');
+            setObservacoes(conta.observacoes || '');
         }
     }, [conta]);
 
