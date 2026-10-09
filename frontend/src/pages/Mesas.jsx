@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import useOperation from '../hooks/useOperation';
 import api from '../services/api';
 import MesaCard from '../components/MesaCard';
 import ModalNovaMesa from '../components/ModalNovaMesa';
 import ModalDetalhesMesa from '../components/ModalDetalhesMesa';
-import Header from '../components/Header';
 import Botao from '../components/Botao';
 import '../styles/pages/Mesas.css';
 
 const Mesas = () => {
+    const {error,busy,run}=useOperation();
     const [mesas, setMesas] = useState([]);
     const [mesaSelecionada, setMesaSelecionada] = useState(null);
     const [mostrarModalNova, setMostrarModalNova] = useState(false);
@@ -19,7 +19,7 @@ const Mesas = () => {
 
     const buscarMesas = async () => {
         try {
-            const { data } = await api.get('/mesas');
+            const { data } = await run(() => api.get('/mesas'));
             setMesas(data);
         } catch (err) {
             console.error('Erro ao buscar mesas', err);
@@ -32,7 +32,9 @@ const Mesas = () => {
 
     return (
         <div className="body">
-            <Header />
+
+            {error && <p role="alert">{error}</p>}
+            {busy && <p role="status">Carregando…</p>}
             <h1>Mesas</h1>
             <div className="body__top">
                 <div className="menu">

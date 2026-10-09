@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import useOperation from '../hooks/useOperation';
 import api from '../services/api.js';
 import '../styles/components/Modal.css';
 import { formatarMoedaDigitada, formatarMoedaBanco, desformatarMoeda } from '../utils/formatacao.js';
 import Botao from './Botao';
 
 const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
+    const {error,busy,run}=useOperation();
     const [clientes, setClientes] = useState([]);
     const [filtro, setFiltro] = useState('');
     const [clienteSelecionado, setClienteSelecionado] = useState(null);
@@ -17,7 +18,7 @@ const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
     useEffect(() => {
         const buscarClientes = async () => {
             try {
-                const res = await api.get('/clientes');
+                const res = await run(() => api.get('/clientes'));
                 setClientes(res.data);
             } catch (err) {
                 console.error('Erro ao buscar clientes', err);
@@ -73,11 +74,11 @@ const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
             valor: valorNumerico,
             dataVencimento: vencimento,
             tipo,
-            Observacao: observacoes
+            observacoes: observacoes
         };
 
         try {
-            await api.put(`/contas/${conta.codigoConta}`, contaAtualizada);
+            await run(() => api.put(`/contas/${conta.codigoConta}`, contaAtualizada));
             onSuccess();
             onClose();
         } catch (err) {
@@ -85,9 +86,19 @@ const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
         }
     };
 
+
+    const excluir = async () => {
+        if (!window.confirm('Excluir este registro? Esta operacao nao pode ser desfeita.')) return;
+        try {
+            await run(() => api.delete('/contas/' + conta.codigoConta));
+            onSuccess(); onClose();
+        } catch { /* Error is displayed by useOperation. */ }
+    };
+
     return (
         <div className="modal-overlay">
             <div className="modal">
+                {error && <p role="alert">{error}</p>}
                 <form onSubmit={handleSubmit}>
                     <h2>Editar Conta</h2>
 
@@ -153,7 +164,8 @@ const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
                     />
 
                     <div className="modal-buttons">
-                        <Botao tipo="submit" tamanho="xxsm" cor="terciario">Salvar</Botao>
+                        <Botao disabled={busy} tamanho='xxsm' cor='terciario' onClick={excluir}>Excluir</Botao>
+                        <Botao tipo="submit" disabled={busy} tamanho="xxsm" cor="terciario">Salvar</Botao>
                         <Botao tamanho="xxsm" cor="terciario" onClick={onClose}>Cancelar</Botao>
                     </div>
                 </form>

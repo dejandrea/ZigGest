@@ -36,8 +36,41 @@ export default function Login() {
       if (mode==='reset') setMessage('Se houver uma conta para esse e-mail, você receberá as instruções.');
     } catch(cause) {setError(cause.message);} finally {setBusy(false);}
   }
-  return <main className='access-page'><section className='access-card'><h1>ZigGest</h1><h2>{mode==='login'?'Entrar':mode==='signup'?'Primeiro acesso':'Recuperar senha'}</h2>
-{configurationError&&<p role='alert'>{configurationError}</p>}
-<form onSubmit={submit}><label htmlFor='email'>E-mail</label><input id='email' type='email' value={email} onChange={e=>setEmail(e.target.value)} required/>{mode!=='reset'&&<><label htmlFor='password'>Senha</label><input id='password' type='password' minLength={mode==='signup'?8:undefined} value={password} onChange={e=>setPassword(e.target.value)} required/></>}<button disabled={busy||!!configurationError}>{busy?'Aguarde':mode==='login'?'Entrar':mode==='signup'?'Confirmar primeiro acesso':'Enviar instrucoes'}</button></form>{error&&<p role='alert'>{error}</p>}{message&&<p role='status'>{message}</p>}
-<nav><button onClick={()=>changeMode('login')}>Login</button><button onClick={()=>changeMode('signup')}>Primeiro acesso</button><button onClick={()=>changeMode('reset')}>Esqueci minha senha</button></nav></section></main>;
+  return <main className="login-page">
+    <aside className="login-brand" aria-label="Sobre o ZigGest">
+      <div className="login-wordmark"><span className="login-mark" aria-hidden="true">Z</span>ZigGest</div>
+      <div className="login-brand-copy">
+        <p className="login-eyebrow">Gestão que acompanha você</p>
+        <h1>Mais controle.<br/>Mais clareza.<br/>Todos os dias.</h1>
+        <p>Organize seus clientes, acompanhe os lançamentos e mantenha sua operação em dia.</p>
+        <div className="login-capabilities"><span>Clientes</span><span>Lançamentos</span><span>Operação</span></div>
+      </div>
+      <p className="login-brand-footer">ZigGest · Sistema de gestão<br/>Tudo conectado à sua rotina.</p>
+    </aside>
+    <section className="login-form-side" aria-labelledby="login-title">
+      <div className="login-panel">
+        <div className="login-wordmark login-mobile-brand"><span className="login-mark" aria-hidden="true">Z</span>ZigGest</div>
+        <p className="login-kicker">{mode==='login'?'Bem-vindo de volta':'Sua conta ZigGest'}</p>
+        <h2 id="login-title">{mode==='login'?'Entrar':mode==='signup'?'Primeiro acesso':'Recuperar senha'}</h2>
+        <p className="login-intro">{mode==='signup'?'Use o e-mail autorizado pelo administrador e escolha uma senha para sua conta.':mode==='reset'?'Informe seu e-mail para receber as instruções de recuperação.':'Acesse sua conta para acompanhar o seu negócio.'}</p>
+        {configurationError&&<p className="login-notice" role="alert">{configurationError}</p>}
+        {session&&!profile&&<p className="login-notice" role="alert">Sem autorização para acessar o sistema. <button className="login-text-button" onClick={()=>signOut().catch(cause=>setError(cause.message))}>Sair</button></p>}
+        <form onSubmit={submit} aria-busy={busy}>
+          <label htmlFor="login-email">E-mail</label>
+          <input id="login-email" type="email" autoComplete="username" placeholder="voce@empresa.com" value={email} onChange={e=>setEmail(e.target.value)} disabled={busy} required />
+          {mode!=='reset'&&<>
+            <div className="login-password-label"><label htmlFor="login-password">Senha</label>{mode==='login'&&<button className="login-text-button" type="button" disabled={busy} onClick={()=>changeMode('reset')}>Esqueci minha senha</button>}</div>
+            <input id="login-password" type="password" autoComplete={mode==='signup'?'new-password':'current-password'} placeholder={mode==='signup'?'Pelo menos 8 caracteres':'Sua senha'} minLength={mode==='signup'?8:undefined} value={password} onChange={e=>setPassword(e.target.value)} disabled={busy} required />
+          </>}
+          <button className="login-submit" disabled={busy||!!configurationError}>{busy?'Aguarde…':mode==='login'?'Entrar':mode==='signup'?'Confirmar primeiro acesso':'Enviar instruções'}<span aria-hidden="true">→</span></button>
+        </form>
+        {error&&<p className="login-notice" role="alert">{error}</p>}{message&&<p className="login-notice" role="status">{message}</p>}
+        <nav className="login-access-nav" aria-label="Acesso">
+          <button type="button" disabled={busy} aria-current={mode==='login'?'page':undefined} onClick={()=>changeMode('login')}>Login</button>
+          <button type="button" disabled={busy} aria-current={mode==='signup'?'page':undefined} onClick={()=>changeMode('signup')}>Primeiro acesso</button>
+        </nav>
+        <p className="login-footnote">Seu acesso é individual.<br/>Use o e-mail autorizado para sua conta.</p>
+      </div>
+    </section>
+  </main>;
 }
