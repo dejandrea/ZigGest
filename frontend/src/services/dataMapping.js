@@ -53,3 +53,15 @@ export function itemFromRow(row) {
   return { _id: row.id, codigoMesa: row.codigo_mesa, descricao: row.descricao,
     valorUnitario: Number(row.valor_unitario), quantidade: row.quantidade, total: Number(row.total) };
 }
+
+export function supplierFromRow(row) {
+ return {_id:row.id,codigoFornecedor:row.codigo_fornecedor,nome:row.nome,nomeFantasia:row.nome_fantasia??'',documento:row.documento??'',contato:row.contato??'',telefone:row.telefone??'',email:row.email??'',endereco:row.endereco??'',observacoes:row.observacoes??'',ativo:row.ativo,createdAt:row.created_at,updatedAt:row.updated_at};
+}
+export function supplierToRow(body) {
+ const row={};
+ for(const key of ['nome','documento','contato','telefone','email','endereco','observacoes']) if(body[key]!==undefined) row[key]=String(body[key]).trim();
+ if(body.nomeFantasia!==undefined)row.nome_fantasia=String(body.nomeFantasia).trim();
+ if(body.ativo!==undefined)row.ativo=boolean(body.ativo);
+ if(row.nome!==undefined&&!row.nome)throw new Error('Informe o nome do fornecedor.');
+ return row;
+}

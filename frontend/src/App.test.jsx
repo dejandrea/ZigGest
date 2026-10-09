@@ -29,7 +29,7 @@ describe('protected application',()=>{
     expect(screen.queryByRole('button',{name:'Clientes'})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:'Cadastros'}));
     expect(screen.getByRole('button',{name:'Clientes'})).toHaveAttribute('aria-current','page');
-    expect(screen.getByRole('button',{name:'Fornecedores Em breve'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Produtos Em breve'})).toBeDisabled();
     fireEvent.click(screen.getByRole('button',{name:'Frente de loja'}));
     expect(screen.queryByRole('button',{name:'Clientes'})).not.toBeInTheDocument();
     expect(screen.getByRole('button',{name:'PDV Em breve'})).toBeDisabled();

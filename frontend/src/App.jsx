@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import Clientes from './pages/Clientes';
+import Fornecedores from './pages/Fornecedores';
 import Contas from './pages/Contas';
 import ResumoContas from './pages/ResumoContas';
 import Mesas from './pages/Mesas';
@@ -20,6 +21,7 @@ export default function App() {
       <Route element={<AppLayout/>}>
       <Route path="/" element={<Home/>}/>
       <Route path="/clientes" element={<Clientes/>}/>
+      <Route path="/fornecedores" element={<Fornecedores/>}/>
       <Route path="/contas" element={<Contas/>}/>
       <Route path="/resumo" element={<ResumoContas/>}/>
       <Route path="/mesas" element={<Mesas/>}/>

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { customerFromRow, customerToRow, ledgerFromRow, ledgerToRow, mesaFromRow, itemFromRow } from './dataMapping';
+import { supplierFromRow, supplierToRow, customerFromRow, customerToRow, ledgerFromRow, ledgerToRow, mesaFromRow, itemFromRow } from './dataMapping';
 
 function client() {
   if (!supabase) throw new Error('Conexão Supabase não configurada.');
@@ -35,6 +35,10 @@ function route(path) { return path.split('/').filter(Boolean); }
 const api = {
   async get(path) {
     const [resource, id, child] = route(path);
+    if (resource === 'fornecedores') {
+      if (!id) return {data:(await all('suppliers','codigo_fornecedor')).map(supplierFromRow)};
+      return {data:supplierFromRow(await result(client().from('suppliers').select('*').eq('codigo_fornecedor',code(id)).single()))};
+    }
     if (resource === 'clientes') {
       if (!id) return { data: (await all('customers','codigo_cliente')).map(customerFromRow) };
       const row = await result(client().from('customers').select('*').eq('codigo_cliente',code(id)).single());
@@ -57,6 +61,7 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if (resource === 'fornecedores') return {data:supplierFromRow(await result(client().from('suppliers').insert(supplierToRow(body)).select().single()))};
     if (resource === 'clientes') {
       const row = await result(client().from('customers').insert(customerToRow(body)).select().single());
       return { data: customerFromRow(row) };
@@ -83,6 +88,7 @@ const api = {
       const row = await result(client().from('dining_table_items').update({ descricao: body.descricao, valor_unitario: Number(body.valorUnitario), quantidade: Number(body.quantidade) }).eq('codigo_mesa',code(id)).eq('id',itemId).select().single());
       return { data: itemFromRow(row) };
     }
+    if (resource === 'fornecedores') return {data:supplierFromRow(await result(client().from('suppliers').update(supplierToRow(body)).eq('codigo_fornecedor',code(id)).select().single()))};
     if (resource === 'clientes') {
       const row = await result(client().from('customers').update(customerToRow(body)).eq('codigo_cliente',code(id)).select().single());
       return { data: customerFromRow(row) };

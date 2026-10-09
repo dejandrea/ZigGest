@@ -40,3 +40,11 @@ describe('Supabase CRUD adapter',()=>{
     expect(mock.queries[0].calls).toContainEqual(['eq','id','fixture']);
   });
 });
+
+it('supplier updates allow editable fields only and preserve the business code',async()=>{
+ mock.responses=[{data:{codigo_fornecedor:3,nome:'Fornecedor',ativo:false},error:null}];
+ await api.put('/fornecedores/3',{nome:' Fornecedor ',nomeFantasia:' Marca ',ativo:false,codigoFornecedor:999,id:'injected',created_at:'injected'});
+ expect(mock.queries[0].table).toBe('suppliers');
+ expect(mock.queries[0].calls).toContainEqual(['update',{nome:'Fornecedor',nome_fantasia:'Marca',ativo:false}]);
+ expect(mock.queries[0].calls).toContainEqual(['eq','codigo_fornecedor',3]);
+});
