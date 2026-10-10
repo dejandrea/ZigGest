@@ -3,10 +3,10 @@ import {beforeEach,it,expect,vi} from 'vitest';
 import {render,screen,fireEvent,waitFor,within} from '@testing-library/react';
 import InvoiceEntryForm from './InvoiceEntryForm';
 import {nfeXml,makeKey} from '../testFixtures/nfe';
-const api=vi.hoisted(()=>({post:vi.fn()}));
+const api=vi.hoisted(()=>({post:vi.fn(),get:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
 const item={_id:'11111111-1111-1111-1111-111111111111',nome:'Coca lata',unidade:'UN',ativo:true};
-beforeEach(()=>{vi.clearAllMocks();api.post.mockResolvedValue({data:{}});});
+beforeEach(()=>{vi.clearAllMocks();api.post.mockResolvedValue({data:{}});api.get.mockResolvedValue({data:[]});});
 async function upload(xml=nfeXml()){
  const file=new File([xml],'nfe.xml',{type:'application/xml'}),bytes=new TextEncoder().encode(xml);
  file.arrayBuffer=async()=>bytes.buffer;
@@ -81,4 +81,35 @@ it('keeps the imported invoice when insumo creation fails or is canceled',async(
  expect(screen.getByText('NF-e 1 / Série 1')).toBeInTheDocument();
  expect(screen.queryByRole('dialog',{name:'Novo item de estoque'})).not.toBeInTheDocument();
  expect(screen.getByLabelText('Insumo do item 1')).toHaveValue('');
+});
+it('prefills supplier data from the issuer and preserves the invoice while saving',async()=>{
+ const supplier={_id:'s1',nome:'Fornecedor & Bebidas',documento:'12345678000195',ativo:true};
+ api.post.mockResolvedValueOnce({data:supplier});
+ const xml=nfeXml().replace('</emit>','<xFant>Bebidas Bahia</xFant><IE>123456</IE><enderEmit><xLgr>Rua das Bebidas</xLgr><nro>10</nro><xBairro>Centro</xBairro><xMun>Salvador</xMun><UF>BA</UF><CEP>40000000</CEP><fone>7133334444</fone></enderEmit></emit>');
+ render(<InvoiceEntryForm items={[item]} onClose={vi.fn()} onSuccess={vi.fn()}/>);await upload(xml);
+ fireEvent.change(screen.getByLabelText('Insumo do item 1'),{target:{value:item._id}});
+ fireEvent.change(screen.getByLabelText('Unidades por embalagem do item 1'),{target:{value:'12'}});
+ fireEvent.change(screen.getByLabelText('Observações da entrada'),{target:{value:'Nota recebida'}});
+ fireEvent.click(screen.getByRole('button',{name:'Cadastrar fornecedor da NF-e'}));
+ const editor=await screen.findByRole('dialog',{name:'Novo fornecedor'});
+ expect(within(editor).getByLabelText('Nome / razão social')).toHaveValue(supplier.nome);
+ expect(within(editor).getByLabelText('CPF / CNPJ')).toHaveValue(supplier.documento);
+ expect(within(editor).getByLabelText('Nome fantasia')).toHaveValue('Bebidas Bahia');
+ expect(within(editor).getByLabelText('Telefone')).toHaveValue('7133334444');
+ expect(within(editor).getByLabelText('Endereço')).toHaveValue('Rua das Bebidas, 10, Centro, Salvador / BA, CEP 40000000');
+ expect(within(editor).getByLabelText('Observações')).toHaveValue('Inscrição estadual: 123456');
+ fireEvent.click(within(editor).getByRole('button',{name:'Salvar fornecedor'}));
+ await screen.findByText('Fornecedor cadastrado: '+supplier.nome);
+ expect(screen.getByLabelText('Insumo do item 1')).toHaveValue(item._id);
+ expect(screen.getByLabelText('Observações da entrada')).toHaveValue('Nota recebida');
+ expect(screen.getByText('Entrada do item 1: 24 UN')).toBeInTheDocument();
+ expect(api.post).toHaveBeenCalledWith('/fornecedores',expect.objectContaining({documento:supplier.documento,nomeFantasia:'Bebidas Bahia'}));
+});
+it('recognizes a supplier already registered with a formatted document',async()=>{
+ api.get.mockResolvedValue({data:[{nome:'Fornecedor existente',documento:'12.345.678/0001-95',ativo:true}]});
+ render(<InvoiceEntryForm items={[item]} onClose={vi.fn()} onSuccess={vi.fn()}/>);await upload();
+ fireEvent.click(screen.getByRole('button',{name:'Cadastrar fornecedor da NF-e'}));
+ await screen.findByText('Fornecedor já cadastrado: Fornecedor existente');
+ expect(screen.queryByRole('dialog',{name:'Novo fornecedor'})).not.toBeInTheDocument();
+ expect(api.post).not.toHaveBeenCalled();
 });

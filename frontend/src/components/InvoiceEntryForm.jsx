@@ -3,6 +3,7 @@ import api from '../services/api';
 import {stockQuantity} from '../services/dataMapping';
 import {NFE_PORTAL,normalizeInvoiceKey,validInvoiceKey,readNfeFile,localDateTime} from '../services/nfe';
 import {StockItemForm} from './InventoryForms';
+import SupplierForm from './SupplierForm';
 import FormModal,{useFormClose} from './FormModal';
 import useOperation from '../hooks/useOperation';
 import '../styles/pages/InvoiceEntry.css';
@@ -13,6 +14,15 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
  const {busy,error,run,setError}=useOperation(),request=useRef({}),importSequence=useRef(0);
  const dirty=!!document||!!key||!!notes,close=useFormClose(onClose,dirty,busy);
  const [newItemLine,setNewItemLine]=useState(null),[createdItems,setCreatedItems]=useState([]);
+ const [creatingSupplier,setCreatingSupplier]=useState(false),[supplierNotice,setSupplierNotice]=useState('');
+ async function openSupplier(){
+  try{await run(async()=>{
+   const {data}=await api.get('/fornecedores');
+   const existing=data.find(s=>s.documento?.replace(/\D/g,'')===document.invoice.supplier.documento);
+   if(existing){setSupplierNotice('Fornecedor já cadastrado: '+existing.nome+(existing.ativo?'':' (inativo)'));return;}
+   setCreatingSupplier(true);
+  });}catch{/* Mantém a entrada e informa a falha de consulta. */}
+ }
  const active=[...items.filter(i=>!createdItems.some(c=>c._id===i._id)),...createdItems].filter(i=>i.ativo);
  function itemCreated(_message,item){setCreatedItems(prev=>[...prev,item]);change(newItemLine,'stockItemId',item.ativo?item._id:'');setNewItemLine(null);}
  async function loadFile(event){
@@ -25,7 +35,7 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
    if(key&&!validInvoiceKey(key))throw new Error('Informe uma chave válida ou limpe o campo antes de importar.');
    if(key&&normalizeInvoiceKey(key)!==loaded.invoice.key)throw new Error('O XML pertence a outra chave de acesso.');
    setDocument(loaded);setKey(loaded.invoice.key);setLines(loaded.invoice.items.map(i=>({line:i.line,stockItemId:'',quantity:String(Number(i.quantity)),factor:'1'})));
-   setArrival(localDateTime(loaded.invoice.issuedAt));setCopied(false);
+   setArrival(localDateTime(loaded.invoice.issuedAt));setCopied(false);setSupplierNotice('');
   });}catch{/* Preserva a nota anterior em caso de falha. */}
  }
  function change(index,field,value){setLines(prev=>prev.map((l,i)=>i===index?{...l,[field]:value}:l));}
@@ -45,7 +55,7 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
   });onSuccess('NF-e importada e estoque atualizado com sucesso.');}catch{/* UUID preservado para repetir a mesma entrada com segurança. */}
  }
  const invoice=document?.invoice;
- return <><FormModal labelledBy="invoice-title" dirty={dirty} busy={busy||newItemLine!==null} onClose={close}><div className="users-editor product-editor invoice-editor">
+ return <><FormModal labelledBy="invoice-title" dirty={dirty} busy={busy||newItemLine!==null||creatingSupplier} onClose={close}><div className="users-editor product-editor invoice-editor">
   <div className="users-editor-heading"><h2 id="invoice-title">Entrada por NF-e</h2><button type="button" aria-label="Fechar formulário" disabled={busy} onClick={close}>×</button></div>
   <p className="users-editor-intro">Importe o XML completo, vincule os produtos aos insumos e confira as quantidades antes de registrar.</p>
   {error&&<p role="alert" className="users-message users-error">{error}</p>}
@@ -58,6 +68,7 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
     {document&&<button type="button" className="users-secondary" onClick={()=>{if(window.confirm('Descartar a nota e os vínculos não salvos?')){setDocument(null);setLines([]);setKey('');setArrival('');}}}>Limpar nota</button>}
    </section>
    {invoice&&<>
+    <div className="product-wide"><button type="button" className="users-secondary" onClick={openSupplier}>Cadastrar fornecedor da NF-e</button>{supplierNotice&&<p role="status" className="users-message users-success">{supplierNotice}</p>}</div>
     <section className="product-wide invoice-summary" aria-label="Dados da NF-e"><h3>NF-e {invoice.number} / Série {invoice.series}</h3><p><strong>Fornecedor:</strong> {invoice.issuerName} · {invoice.issuerDocument}</p><p><strong>Destinatário:</strong> {invoice.recipientName} · {invoice.recipientDocument}</p><p><strong>Emissão:</strong> {new Date(invoice.issuedAt).toLocaleString('pt-BR')} · <strong>Total:</strong> {money.format(Number(invoice.total))}</p><p>Confira o destinatário e a situação atual da nota no portal antes de registrar.</p></section>
     <div className="product-wide invoice-items">{invoice.items.map((item,index)=>{
      const line=lines[index],stock=active.find(i=>i._id===line.stockItemId),total=Number(line.quantity)*Number(line.factor);
@@ -77,5 +88,6 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
   </fieldset></form>
  </div></FormModal>
  {newItemLine!==null&&<StockItemForm initialValues={{nome:invoice.items[newItemLine].name}} onClose={()=>setNewItemLine(null)} onSuccess={itemCreated}/>}
+ {creatingSupplier&&<SupplierForm initialValues={invoice.supplier} onClose={()=>setCreatingSupplier(false)} onSuccess={(_message,supplier)=>{setCreatingSupplier(false);setSupplierNotice('Fornecedor cadastrado: '+supplier.nome);}}/>}
  </>;
 }

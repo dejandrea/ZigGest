@@ -30,7 +30,9 @@ export function parseNfe(xml){
   return {line,code:text(prod,'cProd'),name,unit,quantity,unitPrice:decimal(text(prod,'vUnCom'),'Preço'),total:decimal(text(prod,'vProd'),'Valor do item'),ean:text(prod,'cEAN'),ncm:text(prod,'NCM'),cfop:text(prod,'CFOP'),taxUnit:text(prod,'uTrib'),taxQuantity:text(prod,'qTrib')};
  });
  if(!items.length||items.length>990||new Set(items.map(i=>i.line)).size!==items.length)throw new Error('A NF-e deve conter entre 1 e 990 itens distintos.');
- return {key,number:text(info,'ide/nNF'),series:text(info,'ide/serie'),issuedAt,issuerName:text(info,'emit/xNome'),issuerDocument:text(info,'emit/CNPJ')||text(info,'emit/CPF'),recipientName:text(info,'dest/xNome'),recipientDocument:text(info,'dest/CNPJ')||text(info,'dest/CPF'),total:decimal(text(info,'total/ICMSTot/vNF'),'Total da nota'),items};
+ const issuer=child(info,'emit'),address=child(issuer,'enderEmit');
+ const supplier={nome:text(issuer,'xNome'),nomeFantasia:text(issuer,'xFant'),documento:text(issuer,'CNPJ')||text(issuer,'CPF'),telefone:text(address,'fone'),email:text(issuer,'email'),endereco:[text(address,'xLgr'),text(address,'nro'),text(address,'xCpl'),text(address,'xBairro'),[text(address,'xMun'),text(address,'UF')].filter(Boolean).join(' / '),text(address,'CEP')?'CEP '+text(address,'CEP'):'',text(address,'xPais')].filter(Boolean).join(', '),observacoes:text(issuer,'IE')?'Inscrição estadual: '+text(issuer,'IE'):''};
+ return {key,number:text(info,'ide/nNF'),series:text(info,'ide/serie'),issuedAt,issuerName:supplier.nome,issuerDocument:supplier.documento,supplier,recipientName:text(info,'dest/xNome'),recipientDocument:text(info,'dest/CNPJ')||text(info,'dest/CPF'),total:decimal(text(info,'total/ICMSTot/vNF'),'Total da nota'),items};
 }
 export async function readNfeFile(file){
  if(!file||file.size>MAX_NFE_BYTES)throw new Error('Selecione um XML de até 2 MB.');
