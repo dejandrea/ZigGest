@@ -43,6 +43,7 @@ export function ledgerToRow(body) {
   if (body.dataLancamento) result.issue_at = body.dataLancamento;
   if (body.dataVencimento) result.due_at = /^\d{4}-\d{2}-\d{2}$/.test(body.dataVencimento) ? body.dataVencimento + 'T12:00:00-03:00' : body.dataVencimento;
   if (body.observacoes !== undefined) result.notes = body.observacoes;
+  if (body.categoriaId !== undefined) result.categoria_id=body.categoriaId||null;
   return result;
 }
 export function mesaFromRow(row) {

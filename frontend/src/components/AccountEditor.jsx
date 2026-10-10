@@ -8,11 +8,13 @@ function localDate(value){
   return ['year','month','day'].map(key=>parts.find(p=>p.type===key).value).join('-');
 }
 export default function AccountEditor({conta,onClose,onSuccess}){
+  const [categories,setCategories]=useState([]),[category,setCategory]=useState(conta?.categoriaId??'');
+  useEffect(()=>{let active=true;api.get('/financeiro').then(({data})=>{if(active)setCategories(data?.categories??[]);}).catch(()=>{});return()=>{active=false;};},[]);
   const [customers,setCustomers]=useState([]),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState('');
   const [customer,setCustomer]=useState(String(conta?.codigoCliente||'')),[type,setType]=useState(conta?.tipo||'debito');
   const [amount,setAmount]=useState(conta?formatarMoedaBanco(conta.valor):''),[due,setDue]=useState(localDate(conta?.dataVencimento));
   const [notes,setNotes]=useState(conta?.observacoes||''),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const dirty=customer!==String(conta?.codigoCliente||'')||type!==(conta?.tipo||'debito')||amount!==(conta?formatarMoedaBanco(conta.valor):'')||due!==localDate(conta?.dataVencimento)||notes!==(conta?.observacoes||'');
+  const dirty=category!==(conta?.categoriaId??'')||customer!==String(conta?.codigoCliente||'')||type!==(conta?.tipo||'debito')||amount!==(conta?formatarMoedaBanco(conta.valor):'')||due!==localDate(conta?.dataVencimento)||notes!==(conta?.observacoes||'');
   const requestClose=useFormClose(onClose,dirty,busy);
   async function loadCustomers(){
     setLoading(true);setLoadError('');
@@ -29,7 +31,7 @@ export default function AccountEditor({conta,onClose,onSuccess}){
     if(!conta&&type==='debito'&&selected?.status!=='liberado'){setError('Este cliente está bloqueado para novos débitos.');return;}
     setBusy(true);
     try{
-      const body={codigoCliente:Number(customer),tipo:type,valor:value,observacoes:notes};
+      const body={codigoCliente:Number(customer),tipo:type,valor:value,observacoes:notes,...(category||conta?.categoriaId?{categoriaId:category}:{})};
       if(due)body.dataVencimento=due;
       if(conta)await api.put('/contas/'+conta.codigoConta,body);else await api.post('/contas',body);
       onSuccess(conta?'Lançamento atualizado. O saldo do cliente foi recalculado.':'Lançamento registrado. O saldo do cliente foi recalculado.');
@@ -48,6 +50,7 @@ export default function AccountEditor({conta,onClose,onSuccess}){
       <label htmlFor="account-type">Tipo de lançamento</label><select id="account-type" value={type} onChange={e=>setType(e.target.value)}><option value="debito">Débito</option><option value="credito">Crédito</option></select><p className="users-permission-help">{type==='credito'?'O crédito reduz o valor devido pelo cliente.':'O débito aumenta o valor devido pelo cliente.'}</p>
       <label htmlFor="account-amount">Valor</label><input id="account-amount" inputMode="numeric" value={amount} onChange={e=>setAmount(formatarMoedaDigitada(e.target.value))} placeholder="R$ 0,00" required/>
       <label htmlFor="account-due">Data de vencimento</label><input id="account-due" type="date" value={due} onChange={e=>setDue(e.target.value)}/>{!conta&&<small>Se não informada, o vencimento será em 30 dias.</small>}
+      <label htmlFor="account-category">Categoria de receita (opcional)</label><select id="account-category" value={category} onChange={e=>setCategory(e.target.value)}><option value="">Sem categoria</option>{categories.filter(c=>c.ativo&&['INCOME','BOTH'].includes(c.natureza)).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select>
       <label htmlFor="account-notes">Observações</label><textarea id="account-notes" value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Informações adicionais (opcional)" rows={3}/>
     </fieldset>{error&&<p className="users-message users-error" role="alert">{error}</p>}
     <div className="users-form-actions"><button type="button" className="users-secondary" onClick={requestClose} disabled={busy}>Cancelar</button><button className="users-primary" disabled={busy||loading||!!loadError}>{busy?'Salvando…':'Salvar lançamento'}</button></div></form>

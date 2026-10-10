@@ -4,6 +4,18 @@ import {nfeXml} from '../testFixtures/nfe';
 import {installmentPlan} from './payables';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
 vi.mock('./supabase',()=>({supabase:{from:mock.from,rpc:mock.rpc}}));
+it('calculates separate account balances from balanced transfer entries',async()=>{
+ mock.responses=[{data:[{id:'cash',nome:'Caixa'},{id:'bank',nome:'Banco'}]},{data:[]},{data:[]},{data:[]},{data:[{conta_id:'cash',valor:100},{conta_id:'cash',valor:-30},{conta_id:'bank',valor:30}]}];
+ const {data}=await api.get('/financeiro');
+ expect(data.accounts.map(a=>a.saldo)).toEqual([70,30]);
+ expect(data.accounts.reduce((s,a)=>s+a.saldo,0)).toBe(100);
+ expect(mock.queries.find(q=>q.table==='financial_operations').calls.find(c=>c[0]==='select')[1]).not.toContain('payload');
+});
+it('routes financial movements through the validated RPC without a forged balance',async()=>{
+ await api.post('/financeiro-movimentacoes',{requestId:'r',tipo:'TRANSFER',valor:'30',data:'2026-01-01',descricao:'Transferência',contaId:'cash',destinoId:'bank',saldo:999});
+ expect(mock.rpc).toHaveBeenCalledWith('finance_operation',expect.objectContaining({p_id:'r',p_data:expect.objectContaining({tipo:'TRANSFER',valor:30,conta_id:'cash',destino_id:'bank'})}));
+ expect(mock.rpc.mock.calls.at(-1)[1].p_data).not.toHaveProperty('saldo');
+});
 it('stores optional supplier and entry value in the atomic entry RPC',async()=>{
  await api.post('/movimentacoes-estoque',{tipo:'ENTRADA',requestId:'entry',itemId:'item',quantidade:'2',fator:'12',fornecedorId:'supplier',totalEntrada:'96.00'});
  expect(mock.rpc).toHaveBeenCalledWith('record_stock_entry',{p_request:'entry',p_item:'item',p_quantidade:2,p_fator:12,p_observacoes:'',p_ocorrido_em:null,p_supplier:'supplier',p_total:96});

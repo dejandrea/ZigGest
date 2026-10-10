@@ -6,6 +6,20 @@ import api from '../services/api';
 import ContasPagar from './ContasPagar';
 import EntryFinancePrompt from '../components/EntryFinancePrompt';
 vi.mock('../services/api',()=>({default:{get:vi.fn(),post:vi.fn(),put:vi.fn()}}));
+it('records a partial payment and refreshes the remaining balance without allowing edits',async()=>{
+ const account={id:'payable',fornecedorNome:'Fornecedor teste',descricao:'Compra teste',total:'100',parcelas:[{id:'part',numero:'1',vencimento:'2026-12-01',valor:'100',formaPagamento:'Pix',pago:0,aberto:100}]};
+ const config={accounts:[{id:'bank',nome:'Banco',ativo:true,saldo:200}],methods:[{id:'pix',nome:'Pix',ativo:true,conta_padrao_id:'bank'}],categories:[]};
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/contas-pagar'?[account]:path==='/financeiro'?config:[]}));
+ api.post.mockImplementation(()=>{account.locked=true;account.parcelas[0].pago=30;account.parcelas[0].aberto=70;return Promise.resolve({data:{}});});
+ render(<MemoryRouter><ContasPagar/></MemoryRouter>);
+ fireEvent.click(await screen.findByRole('button',{name:'Pagar parcela'}));
+ await waitFor(()=>expect(screen.getByLabelText('Conta financeira')).toHaveValue('bank'));
+ fireEvent.change(screen.getByLabelText('Valor'),{target:{value:'30'}});
+ fireEvent.click(screen.getByRole('button',{name:'Registrar movimentação'}));
+ expect(await screen.findByText('Em aberto: R$ 70,00')).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Editar lançamento'})).toBeDisabled();
+ expect(api.post).toHaveBeenCalledWith('/financeiro-movimentacoes',expect.objectContaining({tipo:'PAYMENT',parcelaId:'part',valor:'30'}));
+});
 beforeEach(()=>{vi.clearAllMocks();api.get.mockImplementation(path=>Promise.resolve({data:path.startsWith('/financeiro-entrada')?{sourceId:'entry-1',fornecedorNome:'Fornecedor NF',descricao:'NF-e 123',total:'96',parcelas:[{numero:'001',vencimento:'2026-12-01',valor:'96',formaPagamento:'Boleto bancário'}]}:[]}));api.post.mockResolvedValue({data:{}});});
 it('opens finance from the saved entry with supplier, total and due date prefilled',async()=>{
  render(<MemoryRouter initialEntries={['/stock']}><Routes><Route path="/stock" element={<EntryFinancePrompt sourceId="entry-1" onClose={vi.fn()}/>}/><Route path="/contas-pagar" element={<ContasPagar/>}/></Routes></MemoryRouter>);

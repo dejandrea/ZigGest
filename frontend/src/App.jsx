@@ -1,5 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import FinancialSettings from './pages/FinancialSettings';
+import FinancialMovements from './pages/FinancialMovements';
 import Home from './pages/Home';
 import Clientes from './pages/Clientes';
 import Fornecedores from './pages/Fornecedores';
@@ -30,6 +32,8 @@ export default function App() {
       <Route path="/insumos" element={<Insumos/>}/>
       <Route path="/estoque" element={<Insumos overview/>}/>
       <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque/>}/>
+      <Route path="/financeiro" element={<FinancialMovements/>}/>
+      <Route element={<ProtectedRoute admin/>}><Route path="/financeiro/configuracoes" element={<FinancialSettings/>}/></Route>
       <Route path="/contas-pagar" element={<ContasPagar/>}/>
       <Route path="/contas" element={<Contas/>}/>
       <Route path="/resumo" element={<ResumoContas/>}/>

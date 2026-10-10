@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import {parseNfe} from './nfe';
 import {manualInvoicePayload} from './manualInvoice';
 import {cents,paymentMethods,payablePayload,payableFromRow} from './payables';
+import {financePayload,settledAmount} from './finance';
 import { stockFromRow,stockToRow,stockQuantity,componentsToRows,productFromRow, productToRow, supplierFromRow, supplierToRow, customerFromRow, customerToRow, ledgerFromRow, ledgerToRow, mesaFromRow, itemFromRow } from './dataMapping';
 
 function client() {
@@ -37,12 +38,18 @@ function code(value) {
   return number;
 }
 function route(path) { return path.split('/').filter(Boolean); }
+const operationColumns='id,tipo,valor,data,descricao,conta_id,destino_id,categoria_id,forma_id,parcela_id,debito_id,credito_id,estorno_de,motivo,actor_id,created_at';
+const operations=()=>all('financial_operations','created_at',operationColumns);
 const api = {
   async get(path) {
     const [resource, id, child] = route(path);
+    if(resource==='financeiro'){
+      const [accounts,categories,methods,ops,entries]=await Promise.all([all('financial_accounts','nome'),all('financial_categories','nome'),all('financial_payment_methods','nome'),operations(),all('financial_entries','operation_id')]);
+      return {data:{accounts:accounts.map(a=>({...a,saldo:entries.filter(e=>e.conta_id===a.id).reduce((sum,e)=>sum+Math.round(Number(e.valor)*100),0)/100})),categories,methods,operations:ops,entries}};
+    }
     if(resource==='contas-pagar'){
-      const [rows,lines]=await Promise.all([all('supplier_payables','created_at','id,stock_movement_id,fornecedor_id,fornecedor_nome,fornecedor_documento,descricao,total,observacoes,created_at'),all('supplier_payable_installments','payable_id')]);
-      return {data:rows.map(r=>payableFromRow(r,lines))};
+      const [rows,lines,ops]=await Promise.all([all('supplier_payables','created_at','id,stock_movement_id,fornecedor_id,fornecedor_nome,fornecedor_documento,descricao,total,observacoes,created_at,categoria_id'),all('supplier_payable_installments','payable_id'),operations()]);
+      return {data:rows.map(r=>{const account=payableFromRow(r,lines);return {...account,locked:ops.some(o=>account.parcelas.some(p=>p.id===o.parcela_id)),parcelas:account.parcelas.map(p=>{const pago=settledAmount(ops,'parcela_id',p.id);return {...p,pago,aberto:Math.max(0,Math.round((Number(p.valor)-pago)*100)/100)};})};})};
     }
     if(resource==='financeiro-entrada'&&id){
       const movement=await result(client().from('stock_movements').select('id,tipo,descricao,invoice_id,fornecedor_id,total_entrada,observacoes').eq('id',id).single());
@@ -93,9 +100,9 @@ const api = {
       return { data: customerFromRow(row) };
     }
     if (resource === 'contas') {
-      const [rows, customers] = await Promise.all([all('customer_ledger','codigo_conta'), all('customers','codigo_cliente')]);
+      const [rows, customers,ops] = await Promise.all([all('customer_ledger','codigo_conta'), all('customers','codigo_cliente'),operations()]);
       const filtered = id ? rows.filter(row => row.codigo_conta === code(id)) : rows;
-      return { data: filtered.map(row => ledgerFromRow(row, customers)) };
+      return { data: filtered.map(row => {const settled=settledAmount(ops,row.entry_type==='DEBIT'?'debito_id':'credito_id',row.id);return {...ledgerFromRow(row,customers),categoriaId:row.categoria_id??'',financeOperationId:row.financial_operation_id,locked:!!row.financial_operation_id||ops.some(o=>o.debito_id===row.id||o.credito_id===row.id),baixado:settled,aberto:Math.max(0,Math.round((Number(row.amount)-settled)*100)/100),saldoCliente:Number(customers.find(c=>c.codigo_cliente===row.customer_codigo)?.total_pendente??0)};}) };
     }
     if (resource === 'mesas') {
       if (id && child === 'itens') {
@@ -109,6 +116,13 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='financeiro-config'){
+      const allowed={accounts:['nome','tipo','ativo','saldo_inicial','data'],categories:['nome','natureza','ativo'],methods:['nome','tipo','ativo','conta_padrao_id','prazo_dias','max_parcelas','usar_pdv']}[id];
+      if(!allowed)throw new Error('Cadastro financeiro inválido.');
+      const data=Object.fromEntries(allowed.filter(k=>body[k]!==undefined).map(k=>[k,body[k]]));
+      return {data:await result(client().rpc('finance_config',{p_kind:id,p_id:body.id,p_data:data}))};
+    }
+    if(resource==='financeiro-movimentacoes')return {data:await result(client().rpc('finance_operation',{p_id:body.requestId,p_data:financePayload(body)}))};
     if(resource==='contas-pagar')return {data:await result(client().rpc('save_supplier_payable',{p_id:body.requestId,p_source:body.sourceId||null,p_data:payablePayload(body),p_edit:false}))};
     if(resource==='entradas-nfe-manual')return {data:await result(client().rpc('record_manual_stock_invoice',manualInvoicePayload(body)))};
     if(resource==='entradas-nfe'){

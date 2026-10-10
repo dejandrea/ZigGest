@@ -1,4 +1,4 @@
-import React,{useRef,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import api from '../services/api';
 import {cents,installmentPlan,paymentMethods} from '../services/payables';
 import useOperation from '../hooks/useOperation';
@@ -9,6 +9,8 @@ export default function PayableForm({initialValues={},suppliers=[],onClose,onSuc
  const [initial]=useState(()=>({...{fornecedorId:'',fornecedorNome:'',fornecedorDocumento:'',descricao:'',total:'',observacoes:''},...initialValues,parcelas:initialValues.parcelas?.length?initialValues.parcelas:[{numero:'1',vencimento:today(),valor:initialValues.total??'',formaPagamento:initialValues.defaultPaymentMethod??''}]}));
  const [form,setForm]=useState(initial),[count,setCount]=useState(String(initial.parcelas.length)),[firstDate,setFirstDate]=useState(initial.parcelas[0].vencimento),[newSupplier,setNewSupplier]=useState(false),[created,setCreated]=useState([]);
  const {busy,error,run,setError}=useOperation(),request=useRef({});
+ const [categories,setCategories]=useState([]),[categoryError,setCategoryError]=useState('');
+ useEffect(()=>{let active=true;api.get('/financeiro').then(({data})=>{if(active)setCategories(data?.categories??[]);}).catch(()=>{if(active)setCategoryError('Não foi possível carregar as categorias. Você pode salvar sem categoria e ajustá-la depois.');});return()=>{active=false;};},[]);
  const dirty=JSON.stringify(initial)!==JSON.stringify(form),close=useFormClose(onClose,dirty,busy);
  const available=[...suppliers.filter(s=>!created.some(c=>c._id===s._id)),...created];
  const change=(key,value)=>setForm(prev=>({...prev,[key]:value}));
@@ -32,6 +34,8 @@ export default function PayableForm({initialValues={},suppliers=[],onClose,onSuc
    <label>Fornecedor<input required maxLength={200} value={form.fornecedorNome} onChange={e=>{change('fornecedorNome',e.target.value);change('fornecedorId','');}}/></label>
    <label>CPF / CNPJ<input maxLength={30} value={form.fornecedorDocumento} onChange={e=>{change('fornecedorDocumento',e.target.value);change('fornecedorId','');}}/></label>
    <label className="product-wide">Descrição<input required maxLength={200} value={form.descricao} onChange={e=>change('descricao',e.target.value)}/></label>
+   {categoryError&&<p className="product-wide" role="status">{categoryError}</p>}
+   <label className="product-wide">Categoria de despesa (opcional)<select value={form.categoriaId??''} onChange={e=>change('categoriaId',e.target.value)}><option value="">Sem categoria</option>{categories.filter(c=>c.ativo&&['EXPENSE','BOTH'].includes(c.natureza)).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></label>
    <label>Valor total<input required type="number" min="0.01" step="0.01" value={form.total} onChange={e=>change('total',e.target.value)}/></label>
    <label>Número de parcelas<input type="number" min="1" max="120" step="1" value={count} onChange={e=>setCount(e.target.value)}/></label>
    <label>Primeiro vencimento<input type="date" value={firstDate} onChange={e=>setFirstDate(e.target.value)}/></label>

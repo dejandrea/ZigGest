@@ -2,9 +2,9 @@ import React from 'react';
 import {beforeEach,expect,it,vi} from 'vitest';
 import {fireEvent,render,screen,waitFor} from '@testing-library/react';
 import PayableForm from './PayableForm';
-const api=vi.hoisted(()=>({post:vi.fn(),put:vi.fn()}));
+const api=vi.hoisted(()=>({post:vi.fn(),put:vi.fn(),get:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
-beforeEach(()=>{vi.clearAllMocks();api.post.mockResolvedValue({data:{}});});
+beforeEach(()=>{vi.clearAllMocks();api.get.mockResolvedValue({data:{categories:[]}});api.post.mockResolvedValue({data:{}});});
 const draft={sourceId:'entry-1',fornecedorNome:'Fornecedor da nota',fornecedorDocumento:'12345678000195',descricao:'NF-e 1',total:'100.00',parcelas:[{numero:'001',vencimento:'2026-11-01',valor:'50.00',formaPagamento:'Boleto bancário'},{numero:'002',vencimento:'2026-12-01',valor:'50.00',formaPagamento:'Boleto bancário'}]};
 it('prefills NF-e installments and saves customer edits with the source link',async()=>{
  const success=vi.fn();render(<PayableForm initialValues={draft} onClose={vi.fn()} onSuccess={success}/>);
