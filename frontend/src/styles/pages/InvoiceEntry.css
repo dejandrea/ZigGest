@@ -1,0 +1,8 @@
+dialog.form-modal:has(.invoice-editor){width:min(1000px,calc(100% - 32px));max-width:1000px}
+.invoice-source,.invoice-summary,.invoice-item{border:1px solid #dbe3ed;border-radius:10px;padding:18px;background:#f8fafc;min-width:0}
+.invoice-source p,.invoice-summary p,.invoice-item p{font-size:12px;line-height:1.7;color:#52677d;overflow-wrap:anywhere;margin:10px 0}
+.invoice-source label+label{margin-top:16px}.invoice-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.invoice-actions a{text-decoration:none}
+.invoice-summary h3,.invoice-item h3{margin:0 0 10px;font-size:15px;color:#092341;overflow-wrap:anywhere}
+.invoice-items{display:grid;gap:16px}.invoice-line-fields{display:grid;grid-template-columns:minmax(0,2fr) 1fr 1fr;gap:14px}.invoice-summary{background:#edf3f9}
+.invoice-download{display:inline-flex;margin-top:8px}.invoice-entry-actions{display:flex;gap:10px;flex-wrap:wrap}
+@media(max-width:700px){.invoice-line-fields{grid-template-columns:1fr}.invoice-source,.invoice-summary,.invoice-item{padding:14px}}

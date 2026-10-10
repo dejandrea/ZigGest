@@ -1,5 +1,6 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import api from './api';
+import {nfeXml} from '../testFixtures/nfe';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
 vi.mock('./supabase',()=>({supabase:{from:mock.from,rpc:mock.rpc}}));
 beforeEach(()=>{
@@ -38,6 +39,18 @@ it('allows stock item metadata edits but never balance or base unit changes',asy
  expect(mock.queries[0].calls).toContainEqual(['update',{nome:'Coca',estoque_minimo:12}]);
 });
 describe('Supabase CRUD adapter',()=>{
+  it('imports invoice conversions in one RPC without trusting invoice metadata from the client',async()=>{
+    const xml=nfeXml(),item='11111111-1111-1111-1111-111111111111';
+    await api.post('/entradas-nfe',{requestId:'request',xml,lines:[{line:1,stockItemId:item,quantity:'2',factor:'12'}],saldo:99,chave:'forged'});
+    expect(mock.rpc).toHaveBeenCalledWith('import_stock_invoice',{p_request:'request',p_xml:xml,p_lines:[{n_item:1,stock_item_id:item,quantidade:2,fator:12}],p_ocorrido_em:null,p_observacoes:''});
+  });
+  it('rejects unmapped and duplicate NF-e lines and imprecise conversions before calling the RPC',async()=>{
+    const item='11111111-1111-1111-1111-111111111111',line={line:1,stockItemId:item,quantity:2,factor:12};
+    await expect(api.post('/entradas-nfe',{xml:nfeXml(),lines:[]})).rejects.toThrow('todos');
+    await expect(api.post('/entradas-nfe',{xml:nfeXml({items:2}),lines:[line,line]})).rejects.toThrow('Vínculo');
+    await expect(api.post('/entradas-nfe',{xml:nfeXml(),lines:[{...line,quantity:0.001,factor:0.001}]})).rejects.toThrow('precisão');
+    expect(mock.rpc).not.toHaveBeenCalled();
+  });
   it('preserves an absent minimum and persists the negative stock policy',async()=>{
     mock.responses=[{data:{id:'i1',codigo_insumo:1,estoque_minimo:null,saldo:-2,bloquear_estoque_negativo:false},error:null}];
     const {data}=await api.put('/insumos/1',{estoqueMinimo:'',bloquearEstoqueNegativo:false,saldo:999});

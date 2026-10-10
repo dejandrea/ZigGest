@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import {parseNfe} from './nfe';
 import { stockFromRow,stockToRow,stockQuantity,componentsToRows,productFromRow, productToRow, supplierFromRow, supplierToRow, customerFromRow, customerToRow, ledgerFromRow, ledgerToRow, mesaFromRow, itemFromRow } from './dataMapping';
 
 function client() {
@@ -19,10 +20,10 @@ async function result(query) {
   if (error) throw applicationError(error);
   return data;
 }
-async function all(table, column) {
+async function all(table, column, columns='*') {
   const rows = [];
   for (let start = 0; ; start += 1000) {
-    const page = await result(client().from(table).select('*').order(column).order('id').range(start, start + 999));
+    const page = await result(client().from(table).select(columns).order(column).order('id').range(start, start + 999));
     rows.push(...page);
     if (page.length < 1000) return rows;
   }
@@ -36,9 +37,14 @@ function route(path) { return path.split('/').filter(Boolean); }
 const api = {
   async get(path) {
     const [resource, id, child] = route(path);
+    if(resource==='entradas-nfe'&&id){
+      const invoice=await result(client().from('stock_invoices').select('*').eq('id',id).single());
+      const items=await result(client().from('stock_invoice_items').select('*').eq('invoice_id',id).order('n_item'));
+      return {data:{...invoice,itens:items}};
+    }
     if(resource==='insumos')return {data:(await all('stock_items','codigo_insumo')).map(stockFromRow)};
     if(resource==='movimentacoes-estoque'){
-      const rows=await all('stock_movements','created_at'), lines=await all('stock_movement_lines','movement_id');
+      const rows=await all('stock_movements','created_at','id,tipo,descricao,quantidade,fator,product_id,actor_id,observacoes,created_at,ocorrido_em,invoice_id'), lines=await all('stock_movement_lines','movement_id');
       return {data:rows.map(r=>({...r,linhas:lines.filter(l=>l.movement_id===r.id)}))};
     }
     if (resource === 'produtos') {
@@ -73,6 +79,20 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='entradas-nfe'){
+      const invoice=parseNfe(body.xml);
+      if(!Array.isArray(body.lines)||body.lines.length!==invoice.items.length)throw new Error('Vincule todos os itens da NF-e.');
+      const seen=new Set(),lines=body.lines.map(line=>{
+        if(!invoice.items.some(i=>i.line===line.line)||seen.has(line.line)||!/^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(line.stockItemId))throw new Error('Vínculo de item inválido.');
+        seen.add(line.line);
+        const quantity=stockQuantity(line.quantity),factor=stockQuantity(line.factor),total=quantity*factor;
+        if(total>999999999999999.999||Math.abs(total*1000-Math.round(total*1000))>0.00001)throw new Error('Conversão fora da precisão suportada.');
+        return {n_item:line.line,stock_item_id:line.stockItemId,quantidade:quantity,fator:factor};
+      });
+      const date=body.dataEntrada?new Date(body.dataEntrada):null;
+      if(date&&(!Number.isFinite(date.getTime())||date.getTime()>Date.now()))throw new Error('Informe uma data passada ou atual.');
+      return {data:await result(client().rpc('import_stock_invoice',{p_request:body.requestId,p_xml:body.xml,p_lines:lines,p_ocorrido_em:date?.toISOString()??null,p_observacoes:body.observacoes??''}))};
+    }
     if(resource==='insumos'){
       const changes=stockToRow(body);return {data:stockFromRow(await result(client().from('stock_items').insert(changes).select().single()))};
     }
