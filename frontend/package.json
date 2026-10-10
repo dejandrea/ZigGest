@@ -18,6 +18,8 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
+    "check:encoding": "node ../tools/check-encoding.mjs",
+    "prebuild": "npm run check:encoding",
     "dev": "vite",
     "start": "vite",
     "build": "vite build",

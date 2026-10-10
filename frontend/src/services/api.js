@@ -13,7 +13,7 @@ export function applicationError(error) {
   const message = error?.message || 'Não foi possível concluir a operação.';
   if (error?.code === '42501' || error?.code === 'PGRST301') return new Error('Sem permissão ou sessão expirada. Entre novamente.');
   if (error?.code === '23503') return new Error('Este registro possui vínculos. Remova os vínculos ou desative o cadastro.');
-  if (error?.code === 'PGRST116') return new Error('Registro n?o encontrado ou sem permissão.');
+  if (error?.code === 'PGRST116') return new Error('Registro não encontrado ou sem permissão.');
   if (error?.code === '23505' && error?.message?.includes('products_codigo_barras_key')) return new Error('Este código de barras já está cadastrado em outro produto.');
   if (error?.code === '23505' && error?.message?.includes('stock_invoice')) return new Error('Esta nota já foi registrada no estoque.');
   if (error?.code === '23505') return new Error('Já existe um registro com esses dados.');
