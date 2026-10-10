@@ -5,7 +5,7 @@ do $$
 declare cola uuid; bread uuid; unit_product jsonb; pack_product jsonb; recipe_product jsonb; request uuid:=gen_random_uuid(); movement jsonb; before_count bigint;
 begin
  insert into public.stock_items(nome,unidade) values('Fixture Coca lata','UN') returning id into cola;
- insert into public.stock_items(nome,unidade) values('Fixture Pao','UN') returning id into bread;
+ insert into public.stock_items(nome,unidade,bloquear_estoque_negativo) values('Fixture Pao','UN',true) returning id into bread;
  unit_product:=public.save_product_with_stock(null,'{"nome":"Fixture Coca unitaria","preco_venda":5}',jsonb_build_array(jsonb_build_object('stock_item_id',cola,'quantidade',1)));
  pack_product:=public.save_product_with_stock(null,'{"nome":"Fixture Pack 12","preco_venda":48}',jsonb_build_array(jsonb_build_object('stock_item_id',cola,'quantidade',12)));
  movement:=public.record_stock_movement(request,'ENTRADA',cola,null,12,12,'Fixture 12 packs de 12');

@@ -76,12 +76,13 @@ export function stockQuantity(value,allowZero=false){
  if(!/^\d+(\.\d{1,3})?$/.test(text)||!Number.isFinite(number)||number>999999999999.999||(!allowZero&&number===0))throw new Error('Quantidade inválida. Use até três casas decimais.');
  return number;
 }
-export function stockFromRow(row){return {_id:row.id,codigoInsumo:row.codigo_insumo,nome:row.nome,unidade:row.unidade,saldo:Number(row.saldo),estoqueMinimo:Number(row.estoque_minimo),observacoes:row.observacoes??'',ativo:row.ativo};}
+export function stockFromRow(row){return {_id:row.id,codigoInsumo:row.codigo_insumo,nome:row.nome,unidade:row.unidade,saldo:Number(row.saldo),estoqueMinimo:row.estoque_minimo==null?null:Number(row.estoque_minimo),bloquearEstoqueNegativo:row.bloquear_estoque_negativo??false,observacoes:row.observacoes??'',ativo:row.ativo};}
 export function stockToRow(body,editing=false){
  const row={};
  if(body.nome!==undefined){row.nome=String(body.nome).trim();if(!row.nome||row.nome.length>200)throw new Error('Informe o nome do item de estoque.');}
  if(!editing&&body.unidade!==undefined){if(!productUnits.includes(body.unidade))throw new Error('Unidade inválida.');row.unidade=body.unidade;}
- if(body.estoqueMinimo!==undefined)row.estoque_minimo=stockQuantity(body.estoqueMinimo,true);
+ if(body.estoqueMinimo!==undefined)row.estoque_minimo=body.estoqueMinimo===null||String(body.estoqueMinimo).trim()===''?null:stockQuantity(body.estoqueMinimo,true);
+ if(body.bloquearEstoqueNegativo!==undefined)row.bloquear_estoque_negativo=boolean(body.bloquearEstoqueNegativo);
  if(body.observacoes!==undefined)row.observacoes=String(body.observacoes).trim();
  if(body.ativo!==undefined)row.ativo=boolean(body.ativo);
  return row;

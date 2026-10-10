@@ -38,6 +38,21 @@ it('allows stock item metadata edits but never balance or base unit changes',asy
  expect(mock.queries[0].calls).toContainEqual(['update',{nome:'Coca',estoque_minimo:12}]);
 });
 describe('Supabase CRUD adapter',()=>{
+  it('preserves an absent minimum and persists the negative stock policy',async()=>{
+    mock.responses=[{data:{id:'i1',codigo_insumo:1,estoque_minimo:null,saldo:-2,bloquear_estoque_negativo:false},error:null}];
+    const {data}=await api.put('/insumos/1',{estoqueMinimo:'',bloquearEstoqueNegativo:false,saldo:999});
+    expect(mock.queries[0].calls).toContainEqual(['update',{estoque_minimo:null,bloquear_estoque_negativo:false}]);
+    expect(data).toMatchObject({estoqueMinimo:null,saldo:-2,bloquearEstoqueNegativo:false});
+  });
+  it('sends the arrival date and rejects invalid or future dates',async()=>{
+    const body={tipo:'ENTRADA',itemId:'i1',requestId:'r1',quantidade:1,fator:1,dataEntrada:'2026-01-01T10:30:00-03:00'};
+    await api.post('/movimentacoes-estoque',body);
+    expect(mock.rpc).toHaveBeenCalledWith('record_stock_movement',expect.objectContaining({p_ocorrido_em:'2026-01-01T13:30:00.000Z'}));
+    const count=mock.rpc.mock.calls.length;
+    await expect(api.post('/movimentacoes-estoque',{...body,dataEntrada:'invalid'})).rejects.toThrow('data');
+    await expect(api.post('/movimentacoes-estoque',{...body,dataEntrada:'2999-01-01'})).rejects.toThrow('data');
+    expect(mock.rpc).toHaveBeenCalledTimes(count);
+  });
   it('loads every page instead of silently truncating at 1000',async()=>{
     mock.responses=[{data:Array.from({length:1000},(_,i)=>({id:i,codigo_cliente:i+1,nome:'Fixture'})),error:null},{data:[{id:1001,codigo_cliente:1001,nome:'Fixture'}],error:null}];
     const response=await api.get('/clientes');expect(response.data).toHaveLength(1001);

@@ -79,7 +79,10 @@ const api = {
     if(resource==='movimentacoes-estoque'){
       const qty=stockQuantity(body.quantidade),factor=body.tipo==='ENTRADA'?stockQuantity(body.fator):1;
       if(!['ENTRADA','SAIDA'].includes(body.tipo))throw new Error('Tipo de movimentação inválido.');
-      return {data:await result(client().rpc('record_stock_movement',{p_request:body.requestId,p_tipo:body.tipo,p_item:body.tipo==='ENTRADA'?body.itemId:null,p_produto:body.tipo==='SAIDA'?code(body.codigoProduto):null,p_quantidade:qty,p_fator:factor,p_observacoes:body.observacoes??''}))};
+      const date=body.dataEntrada?new Date(body.dataEntrada):null;
+      if(date&&(!Number.isFinite(date.getTime())||date.getTime()>Date.now()))throw new Error('Informe uma data passada ou atual.');
+      if(date&&body.tipo!=='ENTRADA')throw new Error('Data retroativa somente para entradas.');
+      return {data:await result(client().rpc('record_stock_movement',{...(date?{p_ocorrido_em:date.toISOString()}:{}),p_request:body.requestId,p_tipo:body.tipo,p_item:body.tipo==='ENTRADA'?body.itemId:null,p_produto:body.tipo==='SAIDA'?code(body.codigoProduto):null,p_quantidade:qty,p_fator:factor,p_observacoes:body.observacoes??''}))};
     }
     if (resource === 'produtos') {
       const changes=productToRow(body);

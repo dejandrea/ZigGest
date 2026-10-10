@@ -10,7 +10,7 @@ beforeEach(()=>{
 });
 it('displays movement history and records an exit by sales product',async()=>{
  render(<MovimentacoesEstoque/>);await screen.findByText('Coca: +144 UN');
- expect(screen.getByText('Saldo após: 144 UN')).toBeInTheDocument();
+ expect(screen.getByText('Saldo após registro: 144 UN')).toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:/Nova movimentação/}));
  fireEvent.change(screen.getByLabelText('Tipo'),{target:{value:'SAIDA'}});
  fireEvent.change(screen.getByLabelText('Produto de venda'),{target:{value:'1'}});
