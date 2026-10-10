@@ -1,8 +1,26 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import api from './api';
 import {nfeXml} from '../testFixtures/nfe';
+import {installmentPlan} from './payables';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
 vi.mock('./supabase',()=>({supabase:{from:mock.from,rpc:mock.rpc}}));
+it('stores optional supplier and entry value in the atomic entry RPC',async()=>{
+ await api.post('/movimentacoes-estoque',{tipo:'ENTRADA',requestId:'entry',itemId:'item',quantidade:'2',fator:'12',fornecedorId:'supplier',totalEntrada:'96.00'});
+ expect(mock.rpc).toHaveBeenCalledWith('record_stock_entry',{p_request:'entry',p_item:'item',p_quantidade:2,p_fator:12,p_observacoes:'',p_ocorrido_em:null,p_supplier:'supplier',p_total:96});
+});
+it('saves a payable with explicit fields and rejects mismatched installments',async()=>{
+ const body={requestId:'request',sourceId:'entry',fornecedorNome:'Fornecedor',descricao:'Compra',total:'100',parcelas:installmentPlan('100',3,'2026-01-01'),saldo:999};
+ await api.post('/contas-pagar',body);
+ expect(mock.rpc).toHaveBeenCalledWith('save_supplier_payable',expect.objectContaining({p_id:'request',p_source:'entry',p_edit:false,p_data:expect.objectContaining({total:100})}));
+ expect(mock.rpc.mock.calls.at(-1)[1].p_data).not.toHaveProperty('saldo');
+ await expect(api.post('/contas-pagar',{...body,total:'101'})).rejects.toThrow('soma');
+});
+it('loads invoice installments and matches the saved supplier for finance',async()=>{
+ const xml=nfeXml().replace('</infNFe>','<cobr><dup><nDup>001</nDup><dVenc>2026-12-01</dVenc><vDup>96.00</vDup></dup></cobr><pag><detPag><tPag>15</tPag><vPag>96.00</vPag></detPag></pag></infNFe>');
+ mock.responses=[{data:{id:'entry',tipo:'ENTRADA',invoice_id:'invoice',observacoes:'Compra'}},{data:[]},{data:{emitente_nome:'Fornecedor NF',emitente_documento:'12345678000195',numero:'1',serie:'1',total:96,xml_original:xml}},{data:[{id:'supplier',documento:'12.345.678/0001-95'}]}];
+ const {data}=await api.get('/financeiro-entrada/entry');
+ expect(data).toMatchObject({sourceId:'entry',fornecedorId:'supplier',fornecedorNome:'Fornecedor NF',total:'96',parcelas:[{numero:'001',vencimento:'2026-12-01',valor:'96.00',formaPagamento:'Boleto bancário'}]});
+});
 beforeEach(()=>{
   mock.responses=[];mock.queries=[];
   mock.rpc.mockResolvedValue({data:{},error:null});

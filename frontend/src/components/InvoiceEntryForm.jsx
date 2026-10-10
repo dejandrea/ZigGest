@@ -52,12 +52,12 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
    }
    const body={xml:document.xml,lines,dataEntrada:arrival,observacoes:notes},serialized=JSON.stringify(body);
    if(request.current.body!==serialized)request.current={body:serialized,id:crypto.randomUUID()};
-   await api.post('/entradas-nfe',{...body,requestId:request.current.id});
-  });onSuccess('NF-e importada e estoque atualizado com sucesso.');}catch{/* UUID preservado para repetir a mesma entrada com segurança. */}
+   return api.post('/entradas-nfe',{...body,requestId:request.current.id});
+  }).then(({data})=>onSuccess('NF-e importada e estoque atualizado com sucesso.',{sourceId:data.id??request.current.id}));}catch{/* UUID preservado para repetir a mesma entrada com segurança. */}
  }
  const invoice=document?.invoice;
  const [mode,setMode]=useState('xml');
- if(mode==='manual')return <ManualInvoiceEntryForm items={active} onItemCreated={item=>setCreatedItems(prev=>[...prev.filter(i=>i._id!==item._id),item])} onXml={()=>setMode('xml')} onClose={message=>{if(message)onSuccess(message);else onClose();}}/>;
+ if(mode==='manual')return <ManualInvoiceEntryForm items={active} onItemCreated={item=>setCreatedItems(prev=>[...prev.filter(i=>i._id!==item._id),item])} onXml={()=>setMode('xml')} onClose={(message,entry)=>{if(message)onSuccess(message,entry);else onClose();}}/>;
  return <><FormModal labelledBy="invoice-title" dirty={dirty} busy={busy||newItemLine!==null||creatingSupplier} onClose={close}><div className="users-editor product-editor invoice-editor">
   <div className="users-editor-heading"><h2 id="invoice-title">Entrada por NF-e</h2><button type="button" aria-label="Fechar formulário" disabled={busy} onClick={close}>×</button></div>
   <p className="users-editor-intro">Importe o XML completo, vincule os produtos aos insumos e confira as quantidades antes de registrar.</p>

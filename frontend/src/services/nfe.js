@@ -32,7 +32,9 @@ export function parseNfe(xml){
  if(!items.length||items.length>990||new Set(items.map(i=>i.line)).size!==items.length)throw new Error('A NF-e deve conter entre 1 e 990 itens distintos.');
  const issuer=child(info,'emit'),address=child(issuer,'enderEmit');
  const supplier={nome:text(issuer,'xNome'),nomeFantasia:text(issuer,'xFant'),documento:text(issuer,'CNPJ')||text(issuer,'CPF'),telefone:text(address,'fone'),email:text(issuer,'email'),endereco:[text(address,'xLgr'),text(address,'nro'),text(address,'xCpl'),text(address,'xBairro'),[text(address,'xMun'),text(address,'UF')].filter(Boolean).join(' / '),text(address,'CEP')?'CEP '+text(address,'CEP'):'',text(address,'xPais')].filter(Boolean).join(', '),observacoes:text(issuer,'IE')?'Inscrição estadual: '+text(issuer,'IE'):''};
- return {key,number:text(info,'ide/nNF'),series:text(info,'ide/serie'),issuedAt,issuerName:supplier.nome,issuerDocument:supplier.documento,supplier,recipientName:text(info,'dest/xNome'),recipientDocument:text(info,'dest/CNPJ')||text(info,'dest/CPF'),total:decimal(text(info,'total/ICMSTot/vNF'),'Total da nota'),items};
+ const duplicates=Array.from(child(info,'cobr')?.children??[]).filter(e=>e.localName==='dup'&&e.namespaceURI===NS).map(e=>({numero:text(e,'nDup'),vencimento:text(e,'dVenc'),valor:text(e,'vDup')}));
+ const payments=Array.from(child(info,'pag')?.children??[]).filter(e=>e.localName==='detPag'&&e.namespaceURI===NS).map(e=>({code:text(e,'tPag'),description:text(e,'xPag'),amount:text(e,'vPag'),indicator:text(e,'indPag'),date:text(e,'dPag')}));
+ return {key,number:text(info,'ide/nNF'),series:text(info,'ide/serie'),issuedAt,issuerName:supplier.nome,issuerDocument:supplier.documento,supplier,recipientName:text(info,'dest/xNome'),recipientDocument:text(info,'dest/CNPJ')||text(info,'dest/CPF'),total:decimal(text(info,'total/ICMSTot/vNF'),'Total da nota'),items,duplicates,payments};
 }
 export async function readNfeFile(file){
  if(!file||file.size>MAX_NFE_BYTES)throw new Error('Selecione um XML de até 2 MB.');

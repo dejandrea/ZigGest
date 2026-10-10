@@ -6,6 +6,7 @@ import Fornecedores from './pages/Fornecedores';
 import Produtos from './pages/Produtos';
 import Insumos from './pages/Insumos';
 import MovimentacoesEstoque from './pages/MovimentacoesEstoque';
+import ContasPagar from './pages/ContasPagar';
 import Contas from './pages/Contas';
 import ResumoContas from './pages/ResumoContas';
 import Mesas from './pages/Mesas';
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="/insumos" element={<Insumos/>}/>
       <Route path="/estoque" element={<Insumos overview/>}/>
       <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque/>}/>
+      <Route path="/contas-pagar" element={<ContasPagar/>}/>
       <Route path="/contas" element={<Contas/>}/>
       <Route path="/resumo" element={<ResumoContas/>}/>
       <Route path="/mesas" element={<Mesas/>}/>

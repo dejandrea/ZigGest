@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import {parseNfe} from './nfe';
 import {manualInvoicePayload} from './manualInvoice';
+import {cents,paymentMethods,payablePayload,payableFromRow} from './payables';
 import { stockFromRow,stockToRow,stockQuantity,componentsToRows,productFromRow, productToRow, supplierFromRow, supplierToRow, customerFromRow, customerToRow, ledgerFromRow, ledgerToRow, mesaFromRow, itemFromRow } from './dataMapping';
 
 function client() {
@@ -39,6 +40,33 @@ function route(path) { return path.split('/').filter(Boolean); }
 const api = {
   async get(path) {
     const [resource, id, child] = route(path);
+    if(resource==='contas-pagar'){
+      const [rows,lines]=await Promise.all([all('supplier_payables','created_at','id,stock_movement_id,fornecedor_id,fornecedor_nome,fornecedor_documento,descricao,total,observacoes,created_at'),all('supplier_payable_installments','payable_id')]);
+      return {data:rows.map(r=>payableFromRow(r,lines))};
+    }
+    if(resource==='financeiro-entrada'&&id){
+      const movement=await result(client().from('stock_movements').select('id,tipo,descricao,invoice_id,fornecedor_id,total_entrada,observacoes').eq('id',id).single());
+      if(movement.tipo!=='ENTRADA')throw new Error('Somente entradas podem gerar contas a pagar.');
+      const existing=await result(client().from('supplier_payables').select('id').eq('stock_movement_id',id));
+      if(existing.length)throw new Error('Esta entrada já possui lançamento no contas a pagar.');
+      let draft={sourceId:id,fornecedorId:movement.fornecedor_id??'',fornecedorNome:'',fornecedorDocumento:'',descricao:'Entrada: '+movement.descricao,total:movement.total_entrada==null?'':String(movement.total_entrada),observacoes:movement.observacoes??'',parcelas:[]};
+      if(movement.invoice_id){
+        const invoice=await result(client().from('stock_invoices').select('*').eq('id',movement.invoice_id).single());
+        draft={...draft,fornecedorNome:invoice.emitente_nome,fornecedorDocumento:invoice.emitente_documento,descricao:'NF-e '+invoice.numero+' / Série '+invoice.serie,total:String(invoice.total)};
+        const suppliers=await all('suppliers','codigo_fornecedor');
+        draft.fornecedorId=suppliers.find(s=>s.documento?.replace(/\D/g,'')===invoice.emitente_documento)?.id??'';
+        if(invoice.xml_original){
+          const parsed=parseNfe(invoice.xml_original),methods=[...new Set(parsed.payments.map(p=>p.description||paymentMethods[p.code]||('Código '+p.code)))];
+          draft.parcelas=parsed.duplicates.map(p=>({...p,formaPagamento:methods.length===1?methods[0]:''}));
+          draft.paymentInfo=parsed.payments.map(p=>(p.description||paymentMethods[p.code]||('Código '+p.code))+(p.amount?' — R$ '+Number(p.amount).toLocaleString('pt-BR',{minimumFractionDigits:2}):'')).join('; ');
+          draft.defaultPaymentMethod=methods.length===1?methods[0]:'';
+        }
+      }else if(movement.fornecedor_id){
+        const supplier=await result(client().from('suppliers').select('nome,documento').eq('id',movement.fornecedor_id).single());
+        draft={...draft,fornecedorNome:supplier.nome,fornecedorDocumento:supplier.documento};
+      }
+      return {data:draft};
+    }
     if(resource==='entradas-nfe'&&id){
       const invoice=await result(client().from('stock_invoices').select('*').eq('id',id).single());
       const items=await result(client().from('stock_invoice_items').select('*').eq('invoice_id',id).order('n_item'));
@@ -81,6 +109,7 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='contas-pagar')return {data:await result(client().rpc('save_supplier_payable',{p_id:body.requestId,p_source:body.sourceId||null,p_data:payablePayload(body),p_edit:false}))};
     if(resource==='entradas-nfe-manual')return {data:await result(client().rpc('record_manual_stock_invoice',manualInvoicePayload(body)))};
     if(resource==='entradas-nfe'){
       const invoice=parseNfe(body.xml);
@@ -105,6 +134,7 @@ const api = {
       const date=body.dataEntrada?new Date(body.dataEntrada):null;
       if(date&&(!Number.isFinite(date.getTime())||date.getTime()>Date.now()))throw new Error('Informe uma data passada ou atual.');
       if(date&&body.tipo!=='ENTRADA')throw new Error('Data retroativa somente para entradas.');
+      if(body.tipo==='ENTRADA'&&(body.fornecedorId!==undefined||body.totalEntrada!==undefined))return {data:await result(client().rpc('record_stock_entry',{p_request:body.requestId,p_item:body.itemId,p_quantidade:qty,p_fator:factor,p_observacoes:body.observacoes??'',p_ocorrido_em:date?.toISOString()??null,p_supplier:body.fornecedorId||null,p_total:body.totalEntrada===''||body.totalEntrada==null?null:cents(body.totalEntrada)/100}))};
       return {data:await result(client().rpc('record_stock_movement',{...(date?{p_ocorrido_em:date.toISOString()}:{}),p_request:body.requestId,p_tipo:body.tipo,p_item:body.tipo==='ENTRADA'?body.itemId:null,p_produto:body.tipo==='SAIDA'?code(body.codigoProduto):null,p_quantidade:qty,p_fator:factor,p_observacoes:body.observacoes??''}))};
     }
     if (resource === 'produtos') {
@@ -135,6 +165,7 @@ const api = {
   },
   async put(path, body) {
     const [resource,id,child,itemId] = route(path);
+    if(resource==='contas-pagar')return {data:await result(client().rpc('save_supplier_payable',{p_id:id,p_source:body.sourceId||null,p_data:payablePayload(body),p_edit:true}))};
     if(resource==='insumos'){
       const changes=stockToRow(body,true);return {data:stockFromRow(await result(client().from('stock_items').update(changes).eq('codigo_insumo',code(id)).select().single()))};
     }

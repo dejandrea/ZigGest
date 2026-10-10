@@ -1,0 +1,32 @@
+export const paymentMethods={'01':'Dinheiro','02':'Cheque','03':'Cartão de crédito','04':'Cartão de débito','05':'Crédito loja','15':'Boleto bancário','16':'Depósito bancário','17':'Pix','18':'Transferência bancária','90':'Sem pagamento','99':'Outros'};
+export function cents(value){
+ const s=String(value??'');
+ if(!/^\d+(\.\d{1,2})?$/.test(s))throw new Error('Informe um valor com até duas casas decimais.');
+ const n=Math.round(Number(s)*100);if(!Number.isSafeInteger(n)||n>99999999999999)throw new Error('Valor fora do limite.');return n;
+}
+export function validDate(value){
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(value??''))return false;
+ const d=new Date(value+'T12:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===value;
+}
+export function installmentPlan(total,count,firstDate){
+ const amount=cents(total),n=Number(count);
+ if(!Number.isInteger(n)||n<1||n>120||amount<n||!validDate(firstDate))throw new Error('Confira o total, o número de parcelas (1 a 120) e o primeiro vencimento.');
+ const [year,month,day]=firstDate.split('-').map(Number);
+ return Array.from({length:n},(_,index)=>{
+  const end=new Date(Date.UTC(year,month-1+index+1,0));
+  const date=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth(),Math.min(day,end.getUTCDate()))).toISOString().slice(0,10);
+  return {numero:String(index+1),vencimento:date,valor:((Math.floor(amount/n)+(index<amount%n?1:0))/100).toFixed(2),formaPagamento:''};
+ });
+}
+export function payablePayload(form){
+ const total=cents(form.total);
+ if(!String(form.fornecedorNome??'').trim()||!String(form.descricao??'').trim()||total<=0)throw new Error('Informe fornecedor, descrição e total maior que zero.');
+ if(!Array.isArray(form.parcelas)||!form.parcelas.length||form.parcelas.length>120)throw new Error('Informe entre 1 e 120 parcelas.');
+ const parcelas=form.parcelas.map((p,i)=>{
+  if(!validDate(p.vencimento)||cents(p.valor)<=0)throw new Error('Confira os vencimentos e valores das parcelas.');
+  return {numero:i+1,referencia:String(p.numero??i+1),vencimento:p.vencimento,valor:cents(p.valor)/100,forma_pagamento:String(p.formaPagamento??'').trim()};
+ });
+ if(parcelas.reduce((sum,p)=>sum+cents(p.valor.toFixed(2)),0)!==total)throw new Error('A soma das parcelas deve ser igual ao total do lançamento.');
+ return {fornecedor_id:form.fornecedorId||null,fornecedor_nome:form.fornecedorNome.trim(),fornecedor_documento:form.fornecedorDocumento??'',descricao:form.descricao.trim(),total:total/100,observacoes:form.observacoes??'',parcelas};
+}
+export function payableFromRow(row,lines=[]){return {id:row.id,sourceId:row.stock_movement_id,fornecedorId:row.fornecedor_id??'',fornecedorNome:row.fornecedor_nome,fornecedorDocumento:row.fornecedor_documento,descricao:row.descricao,total:String(row.total),observacoes:row.observacoes,parcelas:lines.filter(p=>p.payable_id===row.id).sort((a,b)=>a.numero-b.numero).map(p=>({numero:p.referencia,vencimento:p.vencimento,valor:Number(p.valor).toFixed(2),formaPagamento:p.forma_pagamento}))};}

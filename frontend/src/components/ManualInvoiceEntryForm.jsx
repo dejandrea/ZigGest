@@ -19,8 +19,8 @@ export default function ManualInvoiceEntryForm({items,onClose,onXml,onItemCreate
  async function save(event){event.preventDefault();try{await run(async()=>{
   const body={header,lines,dataEntrada:arrival,observacoes:notes},serialized=JSON.stringify(body);
   if(request.current.body!==serialized)request.current={body:serialized,id:crypto.randomUUID()};
-  await api.post('/entradas-nfe-manual',{...body,requestId:request.current.id});
- });onClose('Nota manual registrada e estoque atualizado com sucesso.');}catch{/* Preserva os campos e o pedido para repetição segura. */}}
+  return api.post('/entradas-nfe-manual',{...body,requestId:request.current.id});
+ }).then(({data})=>onClose('Nota manual registrada e estoque atualizado com sucesso.',{sourceId:data.id??request.current.id}));}catch{/* Preserva os campos e o pedido para repetição segura. */}}
  return <><FormModal labelledBy="manual-invoice-title" dirty={dirty} busy={busy||newItemId!==null||newSupplier} onClose={close}><div className="users-editor product-editor invoice-editor">
   <div className="users-editor-heading"><h2 id="manual-invoice-title">Entrada de NF-e manual</h2><button type="button" aria-label="Fechar formulário" onClick={close} disabled={busy}>×</button></div>
   <p className="users-editor-intro">Digite os dados da nota e dos itens. XML e chave de acesso não são necessários.</p>
