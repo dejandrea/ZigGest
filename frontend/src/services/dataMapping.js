@@ -65,3 +65,56 @@ export function supplierToRow(body) {
  if(row.nome!==undefined&&!row.nome)throw new Error('Informe o nome do fornecedor.');
  return row;
 }
+
+export const productUnits = ['UN','KG','G','L','ML','M','CX','PCT'];
+export function productFromRow(row) {
+ return {_id:row.id,codigoProduto:row.codigo_produto,nome:row.nome,codigoBarras:row.codigo_barras??'',categoria:row.categoria??'',unidade:row.unidade,custo:Number(row.custo),precoVenda:Number(row.preco_venda),observacoes:row.observacoes??'',ativo:row.ativo,createdAt:row.created_at,updatedAt:row.updated_at,componentes:row.componentes??[]};
+}
+
+export function stockQuantity(value,allowZero=false){
+ const text=String(value).trim().replace(',','.'),number=Number(text);
+ if(!/^\d+(\.\d{1,3})?$/.test(text)||!Number.isFinite(number)||number>999999999999.999||(!allowZero&&number===0))throw new Error('Quantidade inválida. Use até três casas decimais.');
+ return number;
+}
+export function stockFromRow(row){return {_id:row.id,codigoInsumo:row.codigo_insumo,nome:row.nome,unidade:row.unidade,saldo:Number(row.saldo),estoqueMinimo:Number(row.estoque_minimo),observacoes:row.observacoes??'',ativo:row.ativo};}
+export function stockToRow(body,editing=false){
+ const row={};
+ if(body.nome!==undefined){row.nome=String(body.nome).trim();if(!row.nome||row.nome.length>200)throw new Error('Informe o nome do item de estoque.');}
+ if(!editing&&body.unidade!==undefined){if(!productUnits.includes(body.unidade))throw new Error('Unidade inválida.');row.unidade=body.unidade;}
+ if(body.estoqueMinimo!==undefined)row.estoque_minimo=stockQuantity(body.estoqueMinimo,true);
+ if(body.observacoes!==undefined)row.observacoes=String(body.observacoes).trim();
+ if(body.ativo!==undefined)row.ativo=boolean(body.ativo);
+ return row;
+}
+export function componentsToRows(components){
+ if(!Array.isArray(components))throw new Error('Composição inválida.');
+ const ids=new Set();
+ return components.map(c=>{
+  if(!/^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(c.stock_item_id)||ids.has(c.stock_item_id.toLowerCase()))throw new Error('Selecione cada item de estoque apenas uma vez.');
+  ids.add(c.stock_item_id.toLowerCase());
+  return {stock_item_id:c.stock_item_id,quantidade:stockQuantity(c.quantidade)};
+ });
+}
+export function productToRow(body) {
+ const row={};
+ for(const key of ['nome','categoria','observacoes']) if(body[key]!==undefined)row[key]=String(body[key]).trim();
+ if(row.nome!==undefined&&(!row.nome||row.nome.length>200))throw new Error('Informe um nome de até 200 caracteres.');
+ if(body.codigoBarras!==undefined){
+  if(body.codigoBarras!==null&&typeof body.codigoBarras!=='string')throw new Error('Informe o código de barras como texto.');
+  row.codigo_barras=body.codigoBarras?.trim()||null;
+  if(row.codigo_barras?.length>64)throw new Error('O código de barras deve ter até 64 caracteres.');
+ }
+ if(body.unidade!==undefined){
+  if(!productUnits.includes(body.unidade))throw new Error('Unidade inválida.');
+  row.unidade=body.unidade;
+ }
+ for(const [field,column,label] of [['custo','custo','Custo'],['precoVenda','preco_venda','Preço de venda']]){
+  if(body[field]===undefined)continue;
+  const text=String(body[field]).trim().replace(',','.');
+  const number=Number(text);
+  if(!/^\d+(\.\d{1,2})?$/.test(text)||!Number.isFinite(number)||number>9999999999.99)throw new Error(label+' inválido. Use um valor positivo ou zero, com até duas casas decimais.');
+  row[column]=number;
+ }
+ if(body.ativo!==undefined)row.ativo=boolean(body.ativo);
+ return row;
+}

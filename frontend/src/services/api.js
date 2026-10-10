@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { supplierFromRow, supplierToRow, customerFromRow, customerToRow, ledgerFromRow, ledgerToRow, mesaFromRow, itemFromRow } from './dataMapping';
+import { stockFromRow,stockToRow,stockQuantity,componentsToRows,productFromRow, productToRow, supplierFromRow, supplierToRow, customerFromRow, customerToRow, ledgerFromRow, ledgerToRow, mesaFromRow, itemFromRow } from './dataMapping';
 
 function client() {
   if (!supabase) throw new Error('Conexão Supabase não configurada.');
@@ -10,6 +10,7 @@ export function applicationError(error) {
   if (error?.code === '42501' || error?.code === 'PGRST301') return new Error('Sem permissão ou sessão expirada. Entre novamente.');
   if (error?.code === '23503') return new Error('Este registro possui vínculos. Remova os vínculos ou desative o cadastro.');
   if (error?.code === 'PGRST116') return new Error('Registro n?o encontrado ou sem permissão.');
+  if (error?.code === '23505' && error?.message?.includes('products_codigo_barras_key')) return new Error('Este código de barras já está cadastrado em outro produto.');
   if (error?.code === '23505') return new Error('Já existe um registro com esses dados.');
   return new Error(message);
 }
@@ -35,6 +36,17 @@ function route(path) { return path.split('/').filter(Boolean); }
 const api = {
   async get(path) {
     const [resource, id, child] = route(path);
+    if(resource==='insumos')return {data:(await all('stock_items','codigo_insumo')).map(stockFromRow)};
+    if(resource==='movimentacoes-estoque'){
+      const rows=await all('stock_movements','created_at'), lines=await all('stock_movement_lines','movement_id');
+      return {data:rows.map(r=>({...r,linhas:lines.filter(l=>l.movement_id===r.id)}))};
+    }
+    if (resource === 'produtos') {
+      const components=await all('product_components','product_id');
+      if (!id) return {data:(await all('products','codigo_produto')).map(r=>productFromRow({...r,componentes:components.filter(c=>c.product_id===r.id)}))};
+      const row=await result(client().from('products').select('*').eq('codigo_produto',code(id)).single());
+      return {data:productFromRow({...row,componentes:components.filter(c=>c.product_id===row.id)})};
+    }
     if (resource === 'fornecedores') {
       if (!id) return {data:(await all('suppliers','codigo_fornecedor')).map(supplierFromRow)};
       return {data:supplierFromRow(await result(client().from('suppliers').select('*').eq('codigo_fornecedor',code(id)).single()))};
@@ -61,6 +73,19 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='insumos'){
+      const changes=stockToRow(body);return {data:stockFromRow(await result(client().from('stock_items').insert(changes).select().single()))};
+    }
+    if(resource==='movimentacoes-estoque'){
+      const qty=stockQuantity(body.quantidade),factor=body.tipo==='ENTRADA'?stockQuantity(body.fator):1;
+      if(!['ENTRADA','SAIDA'].includes(body.tipo))throw new Error('Tipo de movimentação inválido.');
+      return {data:await result(client().rpc('record_stock_movement',{p_request:body.requestId,p_tipo:body.tipo,p_item:body.tipo==='ENTRADA'?body.itemId:null,p_produto:body.tipo==='SAIDA'?code(body.codigoProduto):null,p_quantidade:qty,p_fator:factor,p_observacoes:body.observacoes??''}))};
+    }
+    if (resource === 'produtos') {
+      const changes=productToRow(body);
+      if(body.componentes!==undefined){const components=componentsToRows(body.componentes);return {data:productFromRow(await result(client().rpc('save_product_with_stock',{p_codigo:null,p_dados:changes,p_componentes:components})))};}
+      return {data:productFromRow(await result(client().from('products').insert(changes).select().single()))};
+    }
     if (resource === 'fornecedores') return {data:supplierFromRow(await result(client().from('suppliers').insert(supplierToRow(body)).select().single()))};
     if (resource === 'clientes') {
       const row = await result(client().from('customers').insert(customerToRow(body)).select().single());
@@ -84,9 +109,17 @@ const api = {
   },
   async put(path, body) {
     const [resource,id,child,itemId] = route(path);
+    if(resource==='insumos'){
+      const changes=stockToRow(body,true);return {data:stockFromRow(await result(client().from('stock_items').update(changes).eq('codigo_insumo',code(id)).select().single()))};
+    }
     if (resource === 'mesas' && child === 'itens') {
       const row = await result(client().from('dining_table_items').update({ descricao: body.descricao, valor_unitario: Number(body.valorUnitario), quantidade: Number(body.quantidade) }).eq('codigo_mesa',code(id)).eq('id',itemId).select().single());
       return { data: itemFromRow(row) };
+    }
+    if (resource === 'produtos') {
+      const changes=productToRow(body), productCode=code(id);
+      if(body.componentes!==undefined){const components=componentsToRows(body.componentes);return {data:productFromRow(await result(client().rpc('save_product_with_stock',{p_codigo:productCode,p_dados:changes,p_componentes:components})))};}
+      return {data:productFromRow(await result(client().from('products').update(changes).eq('codigo_produto',productCode).select().single()))};
     }
     if (resource === 'fornecedores') return {data:supplierFromRow(await result(client().from('suppliers').update(supplierToRow(body)).eq('codigo_fornecedor',code(id)).select().single()))};
     if (resource === 'clientes') {

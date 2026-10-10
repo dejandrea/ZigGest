@@ -1,0 +1,52 @@
+import React,{useRef,useState} from 'react';
+import api from '../services/api';
+import {productUnits} from '../services/dataMapping';
+import FormModal,{useFormClose} from './FormModal';
+import useOperation from '../hooks/useOperation';
+
+export function StockItemForm({item,onClose,onSuccess}){
+ const [initial]=useState(()=>({nome:item?.nome??'',unidade:item?.unidade??'UN',estoqueMinimo:item?.estoqueMinimo??'0',observacoes:item?.observacoes??'',ativo:item?.ativo??true}));
+ const [form,setForm]=useState(initial),{busy,error,run}=useOperation();
+ const dirty=JSON.stringify(form)!==JSON.stringify(initial),close=useFormClose(onClose,dirty,busy);
+ const change=(key,value)=>setForm(prev=>({...prev,[key]:value}));
+ async function save(e){e.preventDefault();try{await run(()=>item?api.put('/insumos/'+item.codigoInsumo,form):api.post('/insumos',form));onSuccess('Item de estoque salvo com sucesso.');}catch{/* Preserva formulário. */}}
+ return <FormModal labelledBy="stock-title" dirty={dirty} busy={busy} onClose={close}><div className="users-editor product-editor">
+  <div className="users-editor-heading"><h2 id="stock-title">{item?'Editar item de estoque':'Novo item de estoque'}</h2><button type="button" aria-label="Fechar formulário" onClick={close} disabled={busy}>×</button></div>
+  <p className="users-editor-intro">Use a menor unidade controlada. Para Coca-Cola lata, escolha UN. O saldo começa em zero e é alterado por movimentações.</p>
+  {error&&<p role="alert" className="users-message users-error">{error}</p>}
+  <form onSubmit={save}><fieldset disabled={busy} className="product-fields">
+   <label className="product-wide">Nome do item<input required maxLength={200} autoFocus value={form.nome} onChange={e=>change('nome',e.target.value)}/></label>
+   <label>Unidade de estoque<select disabled={!!item} value={form.unidade} onChange={e=>change('unidade',e.target.value)}>{productUnits.map(u=><option key={u}>{u}</option>)}</select></label>
+   <label>Estoque mínimo<input required type="number" min="0" step="0.001" value={form.estoqueMinimo} onChange={e=>change('estoqueMinimo',e.target.value)}/></label>
+   {item&&<small className="product-wide">A unidade fica fixa para preservar o significado do saldo e dos vínculos.</small>}
+   <label className="product-wide">Observações<textarea rows={3} maxLength={2000} value={form.observacoes} onChange={e=>change('observacoes',e.target.value)}/></label>
+   <label className="product-wide">Situação<select value={String(form.ativo)} onChange={e=>change('ativo',e.target.value==='true')}><option value="true">Ativo</option><option value="false">Inativo</option></select></label>
+   <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button className="users-primary" type="submit">{busy?'Salvando…':'Salvar item'}</button></div>
+  </fieldset></form>
+ </div></FormModal>;
+}
+
+export function StockMovementForm({items,products=[],initialItem=null,onClose,onSuccess}){
+ const [initial]=useState(()=>({tipo:'ENTRADA',itemId:initialItem?._id??'',codigoProduto:'',quantidade:'1',fator:'1',observacoes:''}));
+ const [form,setForm]=useState(initial),{busy,error,run}=useOperation(),request=useRef({});
+ const dirty=JSON.stringify(form)!==JSON.stringify(initial),close=useFormClose(onClose,dirty,busy);
+ const change=(key,value)=>setForm(prev=>({...prev,[key]:value}));
+ const item=items.find(s=>s._id===form.itemId),preview=Number(form.quantidade)*Number(form.fator);
+ async function save(e){
+  e.preventDefault();const payload={...form,itemId:form.tipo==='ENTRADA'?form.itemId:'',codigoProduto:form.tipo==='SAIDA'?form.codigoProduto:'',fator:form.tipo==='SAIDA'?'1':form.fator};
+  const serialized=JSON.stringify(payload);
+  if(request.current.payload!==serialized)request.current={payload:serialized,id:crypto.randomUUID()};
+  try{await run(()=>api.post('/movimentacoes-estoque',{...payload,requestId:request.current.id}));onSuccess('Movimentação registrada com sucesso.');}catch{/* O mesmo pedido mantém o UUID para nova tentativa segura. */}
+ }
+ return <FormModal labelledBy="movement-title" dirty={dirty} busy={busy} onClose={close}><div className="users-editor product-editor">
+  <div className="users-editor-heading"><h2 id="movement-title">Nova movimentação</h2><button type="button" aria-label="Fechar formulário" onClick={close} disabled={busy}>×</button></div>
+  <p className="users-editor-intro">Entradas convertem embalagens em unidades de estoque. Saídas por produto usam a composição cadastrada.</p>
+  {error&&<p role="alert" className="users-message users-error">{error}</p>}
+  <form onSubmit={save}><fieldset className="product-fields" disabled={busy}>
+   <label className="product-wide">Tipo<select value={form.tipo} onChange={e=>change('tipo',e.target.value)}><option value="ENTRADA">Entrada de estoque</option>{!initialItem&&<option value="SAIDA">Saída por produto</option>}</select></label>
+   {form.tipo==='ENTRADA'?<><label className="product-wide">Item de estoque<select required value={form.itemId} onChange={e=>change('itemId',e.target.value)}><option value="">Selecione</option>{items.filter(i=>i.ativo).map(i=><option key={i._id} value={i._id}>{i.nome} / {i.unidade}</option>)}</select></label><label>Quantidade de embalagens<input required type="number" min="0.001" step="0.001" value={form.quantidade} onChange={e=>change('quantidade',e.target.value)}/></label><label>Unidades por embalagem<input required type="number" min="0.001" step="0.001" value={form.fator} onChange={e=>change('fator',e.target.value)}/></label><p className="product-wide inventory-preview">Entrada: {Number.isFinite(preview)?preview.toLocaleString('pt-BR',{maximumFractionDigits:6}):'—'} {item?.unidade??'unidades'}. Exemplo: 12 packs × 12 latas = 144 UN.</p></>:<><label className="product-wide">Produto de venda<select required value={form.codigoProduto} onChange={e=>change('codigoProduto',e.target.value)}><option value="">Selecione</option>{products.filter(p=>p.ativo).map(p=><option key={p.codigoProduto} value={p.codigoProduto}>{p.nome}</option>)}</select></label><label className="product-wide">Quantidade vendida<input required type="number" min="0.001" step="0.001" value={form.quantidade} onChange={e=>change('quantidade',e.target.value)}/></label><p className="product-wide inventory-preview">Esta saída registra somente o estoque. Não gera venda, recebimento ou lançamento financeiro.</p></>}
+   <label className="product-wide">Observações<textarea required maxLength={2000} rows={3} value={form.observacoes} onChange={e=>change('observacoes',e.target.value)} placeholder="Documento ou motivo da movimentação"/></label>
+   <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button type="submit" className="users-primary">{busy?'Registrando…':'Registrar movimentação'}</button></div>
+  </fieldset></form>
+ </div></FormModal>;
+}

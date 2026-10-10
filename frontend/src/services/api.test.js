@@ -1,9 +1,10 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import api from './api';
-const mock=vi.hoisted(()=>({from:vi.fn(),responses:[],queries:[]}));
-vi.mock('./supabase',()=>({supabase:{from:mock.from}}));
+const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
+vi.mock('./supabase',()=>({supabase:{from:mock.from,rpc:mock.rpc}}));
 beforeEach(()=>{
   mock.responses=[];mock.queries=[];
+  mock.rpc.mockResolvedValue({data:{},error:null});
   mock.from.mockImplementation(table=>{
     const query={table,calls:[]};
     for(const method of ['select','order','range','insert','update','delete','eq','single']){
@@ -12,6 +13,29 @@ beforeEach(()=>{
     query.then=(success,failure)=>Promise.resolve(mock.responses.shift()??{data:[],error:null}).then(success,failure);
     mock.queries.push(query);return query;
   });
+});
+
+it('saves a product and its stock consumption in one RPC with an allowlist',async()=>{
+ const item='11111111-1111-1111-1111-111111111111';
+ mock.rpc.mockResolvedValue({data:{id:'p1',codigo_produto:1,nome:'Pack',custo:0,preco_venda:48,componentes:[{stock_item_id:item,quantidade:12}]},error:null});
+ await api.post('/produtos',{nome:'Pack',precoVenda:48,componentes:[{stock_item_id:item,quantidade:'12'}],saldo:999});
+ expect(mock.rpc).toHaveBeenCalledWith('save_product_with_stock',{p_codigo:null,p_dados:{nome:'Pack',preco_venda:48},p_componentes:[{stock_item_id:item,quantidade:12}]});
+ expect(mock.from).not.toHaveBeenCalled();
+});
+it('blocks duplicate or zero recipe quantities before sending a query',async()=>{
+ const item='11111111-1111-1111-1111-111111111111';
+ await expect(api.put('/produtos/1',{componentes:[{stock_item_id:item,quantidade:1},{stock_item_id:item,quantidade:12}]})).rejects.toThrow('apenas uma vez');
+ await expect(api.put('/produtos/1',{componentes:[{stock_item_id:item,quantidade:0}]})).rejects.toThrow('Quantidade');
+ expect(mock.rpc).not.toHaveBeenCalled();
+});
+it('routes inventory conversion through the guarded RPC and ignores a client balance',async()=>{
+ await api.post('/movimentacoes-estoque',{tipo:'ENTRADA',itemId:'fixture-item',requestId:'fixture-request',quantidade:12,fator:12,observacoes:'Compra',saldo:999});
+ expect(mock.rpc).toHaveBeenCalledWith('record_stock_movement',{p_request:'fixture-request',p_tipo:'ENTRADA',p_item:'fixture-item',p_produto:null,p_quantidade:12,p_fator:12,p_observacoes:'Compra'});
+});
+it('allows stock item metadata edits but never balance or base unit changes',async()=>{
+ mock.responses=[{data:{id:'i1',codigo_insumo:1,nome:'Coca',unidade:'UN',saldo:144,estoque_minimo:0,ativo:true},error:null}];
+ await api.put('/insumos/1',{nome:'Coca',saldo:999,unidade:'KG',estoqueMinimo:12});
+ expect(mock.queries[0].calls).toContainEqual(['update',{nome:'Coca',estoque_minimo:12}]);
 });
 describe('Supabase CRUD adapter',()=>{
   it('loads every page instead of silently truncating at 1000',async()=>{
@@ -47,4 +71,26 @@ it('supplier updates allow editable fields only and preserve the business code',
  expect(mock.queries[0].table).toBe('suppliers');
  expect(mock.queries[0].calls).toContainEqual(['update',{nome:'Fornecedor',nome_fantasia:'Marca',ativo:false}]);
  expect(mock.queries[0].calls).toContainEqual(['eq','codigo_fornecedor',3]);
+});
+
+it('stores an optional barcode as null and never converts leading zeroes to a number',async()=>{
+ mock.responses=[{data:{codigo_produto:1,nome:'Avulso',custo:0,preco_venda:0,ativo:true},error:null}];
+ await api.post('/produtos',{nome:'Avulso',codigoBarras:'   ',custo:'0',precoVenda:'0',unidade:'UN'});
+ expect(mock.queries[0].calls).toContainEqual(['insert',{nome:'Avulso',codigo_barras:null,custo:0,preco_venda:0,unidade:'UN'}]);
+ mock.responses=[{data:{codigo_produto:1,nome:'Avulso',codigo_barras:'001234',custo:0,preco_venda:1,ativo:true},error:null}];
+ const response=await api.put('/produtos/1',{codigoBarras:' 001234 ',precoVenda:'1,25',codigoProduto:9,id:'injected',estoque:100,created_at:'injected'});
+ expect(mock.queries[1].calls).toContainEqual(['update',{codigo_barras:'001234',preco_venda:1.25}]);
+ expect(mock.queries[1].calls).toContainEqual(['eq','codigo_produto',1]);
+ expect(response.data.codigoBarras).toBe('001234');
+});
+it.each(['-1','Infinity','abc','1.234','',null])('rejects invalid product prices before contacting the database: %s',async value=>{
+ await expect(api.post('/produtos',{nome:'Teste',precoVenda:value})).rejects.toThrow('inválido');
+ expect(mock.from).not.toHaveBeenCalled();
+});
+it('allows clearing an existing barcode and explains a duplicate barcode',async()=>{
+ mock.responses=[{data:{codigo_produto:1,nome:'Teste',custo:0,preco_venda:0},error:null}];
+ await api.put('/produtos/1',{codigoBarras:''});
+ expect(mock.queries[0].calls).toContainEqual(['update',{codigo_barras:null}]);
+ mock.responses=[{data:null,error:{code:'23505',message:'duplicate key violates products_codigo_barras_key'}}];
+ await expect(api.post('/produtos',{nome:'Teste',codigoBarras:'001234'})).rejects.toThrow('código de barras');
 });
