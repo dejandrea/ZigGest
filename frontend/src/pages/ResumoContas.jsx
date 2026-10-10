@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import api from '../services/api';
 import Icon from '../components/Icon';
+import AccountSummary from '../components/AccountSummary';
 import {ledgerSummary,accountDate} from './Contas';
 import '../styles/pages/Users.css';
 import '../styles/pages/Contas.css';
@@ -17,7 +18,11 @@ export function summarizeCustomers(customers,entries){
   }
   return [...groups.values()].map(g=>({...g,debit:g.debit/100,credit:g.credit/100,balance:(g.debit-g.credit)/100})).sort((a,b)=>b.balance-a.balance||a.nome.localeCompare(b.nome,'pt-BR'));
 }
-export default function ResumoContas(){
+export default function ResumoContas({report=false}){
+  const [section,setSection]=useState('receivables');
+  return <><div className="users-page"><p className="home-eyebrow">{report?'RELATÓRIOS':'FINANCEIRO'}</p><h1>{report?'Relatório financeiro':'Resumo de contas'}</h1><div className="summary-tabs" role="group" aria-label="Seção do resumo">{[['receivables','Contas a receber'],['payables','Contas a pagar'],['banks','Contas bancárias']].map(([key,label])=><button key={key} aria-pressed={section===key} onClick={()=>setSection(key)}>{label}</button>)}</div></div>{section==='receivables'?<ReceivableSummary/>:<AccountSummary key={section} kind={section}/>}</>;
+}
+function ReceivableSummary(){
   const navigate=useNavigate();
   const [customers,setCustomers]=useState([]),[entries,setEntries]=useState([]);
   const [loading,setLoading]=useState(true),[loaded,setLoaded]=useState(false),[error,setError]=useState('');
@@ -38,7 +43,7 @@ export default function ResumoContas(){
   const totals=ledgerSummary(visibleEntries);
   function statement(code){setSelected(String(code));setSearch('');setView('entries');}
   return <div className="users-page summary-page">
-    <header className="users-heading"><div><p className="home-eyebrow">FINANCEIRO</p><h1>Resumo de contas</h1><p>Uma visão clara dos saldos e das movimentações de cada cliente.</p></div><button className="users-secondary" onClick={()=>navigate('/contas')}>Gerenciar lançamentos <span aria-hidden="true">↗</span></button></header>
+    <header className="users-heading"><div><h2>Contas a receber</h2><p>Uma visão clara dos saldos e das movimentações de cada cliente.</p></div><button className="users-secondary" onClick={()=>navigate('/contas')}>Gerenciar lançamentos <span aria-hidden="true">↗</span></button></header>
     {error&&<p className="users-message users-error" role="alert">{error}</p>}
     <div className="summary-scope"><span className="summary-scope-dot" aria-hidden="true"/>{selected==='all'&&!search?'Visão geral de todos os clientes':'Resumo dos clientes selecionados'}<span>{loaded&&!loading?filtered.length+' clientes · '+visibleEntries.length+' lançamentos':''}</span></div>
     <div className="users-stats accounts-stats" aria-label="Totais do resumo">{[['Total de débitos',totals.debit,'debit'],['Total de créditos',totals.credit,'credit'],['Saldo dos lançamentos',totals.balance,'balance']].map(([label,value,kind])=><div className={'accounts-stat '+kind} key={kind}><div><span>{label}</span><Icon name="money"/></div><strong>{loaded?money.format(value):'—'}</strong><small>{kind==='balance'?'Débitos menos créditos':'Valores dos clientes selecionados'}</small></div>)}</div>
