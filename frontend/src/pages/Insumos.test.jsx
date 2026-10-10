@@ -1,6 +1,6 @@
 import React from 'react';
 import {beforeEach,it,expect,vi} from 'vitest';
-import {render,screen,fireEvent,waitFor} from '@testing-library/react';
+import {render,screen,fireEvent,waitFor,within} from '@testing-library/react';
 import Insumos from './Insumos';
 const api=vi.hoisted(()=>({get:vi.fn(),post:vi.fn(),put:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
@@ -63,4 +63,24 @@ it('records the arrival date on a backdated entry',async()=>{
  fireEvent.change(screen.getByLabelText('Observações'),{target:{value:'Nota recebida anteriormente'}});
  fireEvent.click(screen.getByRole('button',{name:'Registrar movimentação'}));
  await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/movimentacoes-estoque',expect.objectContaining({dataEntrada:'2026-01-01T10:30'})));
+});
+it('creates an insumo from a manual entry while preserving quantities and notes',async()=>{
+ const created={_id:'i3',codigoInsumo:3,nome:'Água',unidade:'UN',ativo:true};
+ api.post.mockResolvedValueOnce({data:created});
+ render(<Insumos/>);await screen.findByText('Coca-Cola lata');
+ fireEvent.click(screen.getByRole('button',{name:'Entrada de Coca-Cola lata'}));
+ fireEvent.change(screen.getByLabelText('Quantidade de embalagens'),{target:{value:'2'}});
+ fireEvent.change(screen.getByLabelText('Unidades por embalagem'),{target:{value:'12'}});
+ fireEvent.change(screen.getByLabelText('Observações'),{target:{value:'Compra nova'}});
+ fireEvent.click(screen.getByRole('button',{name:'Novo insumo'}));
+ const editor=screen.getByRole('dialog',{name:'Novo item de estoque'});
+ fireEvent.change(within(editor).getByLabelText('Nome do item'),{target:{value:'Água'}});
+ fireEvent.click(within(editor).getByRole('button',{name:'Salvar item'}));
+ await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Novo item de estoque'})).not.toBeInTheDocument());
+ expect(screen.getByLabelText('Item de estoque')).toHaveValue('i3');
+ expect(screen.getByLabelText('Observações')).toHaveValue('Compra nova');
+ expect(screen.getByText(/Entrada: 24 UN/)).toBeInTheDocument();
+ expect(api.post).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'Registrar movimentação'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/movimentacoes-estoque',expect.objectContaining({itemId:'i3',quantidade:'2',fator:'12',observacoes:'Compra nova'})));
 });

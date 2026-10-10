@@ -8,6 +8,7 @@
 - Importação do XML completo `nfeProc`, modelo 55, com protocolo de autorização de produção. Notas de homologação, XML malformado, entidades/DOCTYPE, protocolo incompatível e itens inválidos são recusados. Limite de 2 MB e até 990 itens.
 - Dados de fornecedor, destinatário, emissão, série, número, valor total e itens ficam disponíveis para conferência.
 - Cada item deve ser vinculado a um insumo ativo. Quantidade recebida e unidades por embalagem podem ser ajustadas. Exemplo: 2 PCT × 12 = 24 UN.
+- O botão **Novo insumo** abre o cadastro diretamente na entrada manual ou no item da NF-e, preservando o processo em andamento. Na nota, o nome inicia com a descrição do produto. Ao salvar, o insumo ativo fica disponível e selecionado no item de origem, sem alterar as outras linhas, quantidades, conversões, data ou observações. Cancelar ou falhar no cadastro mantém a entrada.
 - Quantidade comercial original e recebida ficam separadas. Quantidades/conversões de estoque usam até três casas decimais; precisão adicional do XML original é preservada e requer ajuste explícito se não puder ser representada no estoque.
 - Vários itens da nota podem alimentar o mesmo insumo; consumo convertido é somado antes de atualizar o saldo.
 - Data de entrada inicia na emissão e pode ser ajustada para a chegada real, inclusive retroativa. A data de registro permanece separada.

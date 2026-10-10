@@ -1,6 +1,6 @@
 import React from 'react';
 import {beforeEach,it,expect,vi} from 'vitest';
-import {render,screen,fireEvent,waitFor} from '@testing-library/react';
+import {render,screen,fireEvent,waitFor,within} from '@testing-library/react';
 import InvoiceEntryForm from './InvoiceEntryForm';
 import {nfeXml,makeKey} from '../testFixtures/nfe';
 const api=vi.hoisted(()=>({post:vi.fn()}));
@@ -45,4 +45,40 @@ it('offers the official portal and rejects XML for a different typed key',async(
  fireEvent.change(screen.getByLabelText('Arquivo XML da NF-e'),{target:{files:[file]}});
  expect(await screen.findByRole('alert')).toHaveTextContent('outra chave');
  expect(api.post).not.toHaveBeenCalled();
+});
+it('creates and selects an insumo without losing invoice links, quantities or notes',async()=>{
+ const created={_id:'22222222-2222-2222-2222-222222222222',nome:'Novo refrigerante',unidade:'UN',ativo:true};
+ api.post.mockResolvedValueOnce({data:created});
+ render(<InvoiceEntryForm items={[item]} onClose={vi.fn()} onSuccess={vi.fn()}/>);await upload(nfeXml({items:2}));
+ fireEvent.change(screen.getByLabelText('Insumo do item 1'),{target:{value:item._id}});
+ fireEvent.change(screen.getByLabelText('Unidades por embalagem do item 1'),{target:{value:'12'}});
+ fireEvent.change(screen.getByLabelText('Quantidade recebida do item 2'),{target:{value:'3'}});
+ fireEvent.change(screen.getByLabelText('Unidades por embalagem do item 2'),{target:{value:'6'}});
+ fireEvent.change(screen.getByLabelText('Observações da entrada'),{target:{value:'Recebimento parcial'}});
+ const date=screen.getByLabelText('Data de entrada').value;
+ fireEvent.click(screen.getByRole('button',{name:'Novo insumo para o item 2'}));
+ const editor=screen.getByRole('dialog',{name:'Novo item de estoque'});
+ expect(within(editor).getByLabelText('Nome do item')).toHaveValue('Coca-Cola pacote 2');
+ fireEvent.change(within(editor).getByLabelText('Nome do item'),{target:{value:created.nome}});
+ fireEvent.click(within(editor).getByRole('button',{name:'Salvar item'}));
+ await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Novo item de estoque'})).not.toBeInTheDocument());
+ expect(screen.getByLabelText('Insumo do item 2')).toHaveValue(created._id);
+ expect(screen.getByLabelText('Insumo do item 1')).toHaveValue(item._id);
+ expect(screen.getByLabelText('Observações da entrada')).toHaveValue('Recebimento parcial');
+ expect(screen.getByLabelText('Data de entrada')).toHaveValue(date);
+ expect(screen.getByText('Entrada do item 2: 18 UN')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Registrar entrada da NF-e'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/entradas-nfe',expect.objectContaining({lines:[expect.objectContaining({stockItemId:item._id,factor:'12'}),expect.objectContaining({stockItemId:created._id,quantity:'3',factor:'6'})]})));
+});
+it('keeps the imported invoice when insumo creation fails or is canceled',async()=>{
+ api.post.mockRejectedValueOnce(new Error('Falha ao cadastrar'));
+ render(<InvoiceEntryForm items={[]} onClose={vi.fn()} onSuccess={vi.fn()}/>);await upload();
+ fireEvent.click(screen.getByRole('button',{name:'Novo insumo para o item 1'}));
+ const editor=screen.getByRole('dialog',{name:'Novo item de estoque'});
+ fireEvent.click(within(editor).getByRole('button',{name:'Salvar item'}));
+ expect(await within(editor).findByRole('alert')).toHaveTextContent('Falha ao cadastrar');
+ fireEvent.click(within(editor).getByRole('button',{name:'Cancelar'}));
+ expect(screen.getByText('NF-e 1 / Série 1')).toBeInTheDocument();
+ expect(screen.queryByRole('dialog',{name:'Novo item de estoque'})).not.toBeInTheDocument();
+ expect(screen.getByLabelText('Insumo do item 1')).toHaveValue('');
 });

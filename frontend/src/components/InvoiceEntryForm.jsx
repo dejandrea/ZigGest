@@ -2,6 +2,7 @@ import React,{useRef,useState} from 'react';
 import api from '../services/api';
 import {stockQuantity} from '../services/dataMapping';
 import {NFE_PORTAL,normalizeInvoiceKey,validInvoiceKey,readNfeFile,localDateTime} from '../services/nfe';
+import {StockItemForm} from './InventoryForms';
 import FormModal,{useFormClose} from './FormModal';
 import useOperation from '../hooks/useOperation';
 import '../styles/pages/InvoiceEntry.css';
@@ -11,7 +12,9 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
  const [document,setDocument]=useState(null),[lines,setLines]=useState([]),[arrival,setArrival]=useState(''),[notes,setNotes]=useState(''),[key,setKey]=useState(''),[copied,setCopied]=useState(false);
  const {busy,error,run,setError}=useOperation(),request=useRef({}),importSequence=useRef(0);
  const dirty=!!document||!!key||!!notes,close=useFormClose(onClose,dirty,busy);
- const active=items.filter(i=>i.ativo);
+ const [newItemLine,setNewItemLine]=useState(null),[createdItems,setCreatedItems]=useState([]);
+ const active=[...items.filter(i=>!createdItems.some(c=>c._id===i._id)),...createdItems].filter(i=>i.ativo);
+ function itemCreated(_message,item){setCreatedItems(prev=>[...prev,item]);change(newItemLine,'stockItemId',item.ativo?item._id:'');setNewItemLine(null);}
  async function loadFile(event){
   const file=event.target.files?.[0];event.target.value='';if(!file)return;
   if(document&&!window.confirm('Substituir a nota e descartar os vínculos não salvos?'))return;
@@ -42,7 +45,7 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
   });onSuccess('NF-e importada e estoque atualizado com sucesso.');}catch{/* UUID preservado para repetir a mesma entrada com segurança. */}
  }
  const invoice=document?.invoice;
- return <FormModal labelledBy="invoice-title" dirty={dirty} busy={busy} onClose={close}><div className="users-editor product-editor invoice-editor">
+ return <><FormModal labelledBy="invoice-title" dirty={dirty} busy={busy||newItemLine!==null} onClose={close}><div className="users-editor product-editor invoice-editor">
   <div className="users-editor-heading"><h2 id="invoice-title">Entrada por NF-e</h2><button type="button" aria-label="Fechar formulário" disabled={busy} onClick={close}>×</button></div>
   <p className="users-editor-intro">Importe o XML completo, vincule os produtos aos insumos e confira as quantidades antes de registrar.</p>
   {error&&<p role="alert" className="users-message users-error">{error}</p>}
@@ -60,10 +63,11 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
      const line=lines[index],stock=active.find(i=>i._id===line.stockItemId),total=Number(line.quantity)*Number(line.factor);
      return <section key={item.line} className="invoice-item" aria-label={'Item '+item.line+' da nota'}><h3>{item.line}. {item.name}</h3><p className="inventory-code">Código {item.code} · NCM {item.ncm} · CFOP {item.cfop}</p><p>Na nota: {number.format(Number(item.quantity))} {item.unit} · Valor unitário: {money.format(Number(item.unitPrice))} · Total: {money.format(Number(item.total))}</p>
       <div className="invoice-line-fields"><label>Insumo do item {item.line}<select required value={line.stockItemId} onChange={e=>change(index,'stockItemId',e.target.value)}><option value="">Selecione o insumo</option>{active.map(i=><option key={i._id} value={i._id}>{i.nome} / {i.unidade}</option>)}</select></label><label>Quantidade recebida do item {item.line}<input required type="number" min="0.001" step="0.001" value={line.quantity} onChange={e=>change(index,'quantity',e.target.value)}/></label><label>Unidades por embalagem do item {item.line}<input required type="number" min="0.001" step="0.001" value={line.factor} onChange={e=>change(index,'factor',e.target.value)}/></label></div>
+      <button type="button" className="users-secondary" onClick={()=>setNewItemLine(index)}>Novo insumo para o item {item.line}</button>
       <p className="inventory-preview">Entrada do item {item.line}: {Number.isFinite(total)?number.format(total):'—'} {stock?.unidade??'unidades'}</p>
      </section>;
     })}</div>
-    <small className="product-wide">Exemplo: Coca-Cola com 2 pacotes na nota e 12 unidades por embalagem = 24 UN. A quantidade original da nota é preservada; ajuste a recebida quando necessário. Cadastre previamente os insumos que faltarem.</small>
+    <small className="product-wide">Exemplo: Coca-Cola com 2 pacotes na nota e 12 unidades por embalagem = 24 UN. A quantidade original da nota é preservada; ajuste a recebida quando necessário. Use Novo insumo no item da nota para cadastrar sem perder esta entrada.</small>
     <label className="product-wide">Data de entrada<input type="datetime-local" value={arrival} onChange={e=>setArrival(e.target.value)}/></label>
     <small className="product-wide">A data inicia na emissão da nota. Ajuste para a chegada real, inclusive retroativa; em branco, usa o momento do registro.</small>
     <label className="product-wide">Observações da entrada<textarea maxLength={2000} rows={3} value={notes} onChange={e=>setNotes(e.target.value)}/></label>
@@ -71,5 +75,7 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
    {!active.length&&<p className="product-wide">Cadastre ou ative os insumos antes de registrar a entrada.</p>}
    <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button type="submit" className="users-primary" disabled={!invoice||!active.length}>{busy?'Registrando…':'Registrar entrada da NF-e'}</button></div>
   </fieldset></form>
- </div></FormModal>;
+ </div></FormModal>
+ {newItemLine!==null&&<StockItemForm initialValues={{nome:invoice.items[newItemLine].name}} onClose={()=>setNewItemLine(null)} onSuccess={itemCreated}/>}
+ </>;
 }
