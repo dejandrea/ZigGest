@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import {parseNfe} from './nfe';
+import {manualInvoicePayload} from './manualInvoice';
 import { stockFromRow,stockToRow,stockQuantity,componentsToRows,productFromRow, productToRow, supplierFromRow, supplierToRow, customerFromRow, customerToRow, ledgerFromRow, ledgerToRow, mesaFromRow, itemFromRow } from './dataMapping';
 
 function client() {
@@ -12,6 +13,7 @@ export function applicationError(error) {
   if (error?.code === '23503') return new Error('Este registro possui vínculos. Remova os vínculos ou desative o cadastro.');
   if (error?.code === 'PGRST116') return new Error('Registro n?o encontrado ou sem permissão.');
   if (error?.code === '23505' && error?.message?.includes('products_codigo_barras_key')) return new Error('Este código de barras já está cadastrado em outro produto.');
+  if (error?.code === '23505' && error?.message?.includes('stock_invoice')) return new Error('Esta nota já foi registrada no estoque.');
   if (error?.code === '23505') return new Error('Já existe um registro com esses dados.');
   return new Error(message);
 }
@@ -79,6 +81,7 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='entradas-nfe-manual')return {data:await result(client().rpc('record_manual_stock_invoice',manualInvoicePayload(body)))};
     if(resource==='entradas-nfe'){
       const invoice=parseNfe(body.xml);
       if(!Array.isArray(body.lines)||body.lines.length!==invoice.items.length)throw new Error('Vincule todos os itens da NF-e.');

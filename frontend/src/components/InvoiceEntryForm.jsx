@@ -4,6 +4,7 @@ import {stockQuantity} from '../services/dataMapping';
 import {NFE_PORTAL,normalizeInvoiceKey,validInvoiceKey,readNfeFile,localDateTime} from '../services/nfe';
 import {StockItemForm} from './InventoryForms';
 import SupplierForm from './SupplierForm';
+import ManualInvoiceEntryForm from './ManualInvoiceEntryForm';
 import FormModal,{useFormClose} from './FormModal';
 import useOperation from '../hooks/useOperation';
 import '../styles/pages/InvoiceEntry.css';
@@ -55,11 +56,14 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
   });onSuccess('NF-e importada e estoque atualizado com sucesso.');}catch{/* UUID preservado para repetir a mesma entrada com segurança. */}
  }
  const invoice=document?.invoice;
+ const [mode,setMode]=useState('xml');
+ if(mode==='manual')return <ManualInvoiceEntryForm items={active} onItemCreated={item=>setCreatedItems(prev=>[...prev.filter(i=>i._id!==item._id),item])} onXml={()=>setMode('xml')} onClose={message=>{if(message)onSuccess(message);else onClose();}}/>;
  return <><FormModal labelledBy="invoice-title" dirty={dirty} busy={busy||newItemLine!==null||creatingSupplier} onClose={close}><div className="users-editor product-editor invoice-editor">
   <div className="users-editor-heading"><h2 id="invoice-title">Entrada por NF-e</h2><button type="button" aria-label="Fechar formulário" disabled={busy} onClick={close}>×</button></div>
   <p className="users-editor-intro">Importe o XML completo, vincule os produtos aos insumos e confira as quantidades antes de registrar.</p>
   {error&&<p role="alert" className="users-message users-error">{error}</p>}
   <form onSubmit={save}><fieldset disabled={busy} className="product-fields">
+   <label className="product-wide">Forma de entrada<select value="xml" onChange={()=>{if(!dirty||window.confirm('Descartar os dados desta entrada para digitar a nota manualmente?'))setMode('manual');}}><option value="xml">Importar XML</option><option value="manual">Digitar nota manualmente</option></select></label>
    <section className="product-wide invoice-source" aria-label="Obter XML da nota">
     <label>Chave de acesso (44 dígitos)<input inputMode="numeric" value={key} readOnly={!!document} onChange={e=>{setKey(e.target.value);setCopied(false);}} placeholder="Digite a chave para consultar no portal"/></label>
     <div className="invoice-actions"><button type="button" className="users-secondary" disabled={!validInvoiceKey(key)} onClick={copyKey}>{copied?'Chave copiada':'Copiar chave'}</button><a className="users-secondary" href={NFE_PORTAL} target="_blank" rel="noopener noreferrer">Abrir portal oficial</a></div>

@@ -21,3 +21,10 @@ it('shows persisted original and received quantities and downloads the complete 
   expect(click.mock.instances[0].download).toBe('NFe-'+makeKey()+'.xml');
  }finally{click.mockRestore();vi.unstubAllGlobals();}
 });
+it('identifies a typed invoice without offering a nonexistent XML download',async()=>{
+ api.get.mockResolvedValue({data:{numero:'123',serie:'1',origem:'MANUAL',emitente_nome:'Fornecedor',emitente_documento:'12345678000195',emitida_em:'2026-01-01T13:30:00Z',total:96,chave:null,xml_original:null,itens:[]}});
+ render(<InvoiceDetails id="manual-note" onClose={vi.fn()}/>);
+ await screen.findByText('Origem: Digitada manualmente');
+ expect(screen.getByText('Chave: Não informada')).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Baixar XML da NF-e'})).not.toBeInTheDocument();
+});
