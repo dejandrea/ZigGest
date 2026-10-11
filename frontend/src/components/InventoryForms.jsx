@@ -50,7 +50,7 @@ export function StockMovementForm({items,products=[],initialItem=null,onClose,on
  }
  return <><FormModal labelledBy="movement-title" dirty={dirty} busy={busy||creatingItem||creatingSupplier} onClose={close}><div className="users-editor product-editor">
   <div className="users-editor-heading"><h2 id="movement-title">Nova movimentação</h2><button type="button" aria-label="Fechar formulário" onClick={close} disabled={busy}>×</button></div>
-  <p className="users-editor-intro">Entradas convertem embalagens em unidades de estoque. Saídas por produto usam a composição cadastrada.</p>
+  <p className="users-editor-intro">Entradas convertem embalagens em unidades e chegam ao estoque principal. Saídas usam a composição e o estoque de saída cadastrados no produto.</p>
   {error&&<p role="alert" className="users-message users-error">{error}</p>}
   <form onSubmit={save}><fieldset className="product-fields" disabled={busy}>
    <label className="product-wide">Tipo<select value={form.tipo} onChange={e=>change('tipo',e.target.value)}><option value="ENTRADA">Entrada de estoque</option>{!initialItem&&<option value="SAIDA">Saída por produto</option>}</select></label>

@@ -4,17 +4,19 @@ update public.cash_sessions set status='CLOSED' where status='OPEN';
 do $$begin perform set_config('request.jwt.claim.sub',(select id::text from auth.users where lower(email)='dejandrea@gmail.com'),true);end $$;
 set local role authenticated;
 do $$
-declare baseline numeric; acc uuid:=gen_random_uuid(); cat uuid:=gen_random_uuid(); pix uuid:=gen_random_uuid(); session uuid:=gen_random_uuid();
+declare kitchen uuid:=gen_random_uuid();main uuid;baseline numeric; acc uuid:=gen_random_uuid(); cat uuid:=gen_random_uuid(); pix uuid:=gen_random_uuid(); session uuid:=gen_random_uuid();
  pdv uuid:=gen_random_uuid(); dest uuid:=gen_random_uuid(); fresh uuid:=gen_random_uuid(); other uuid:=gen_random_uuid();
  product public.products; stock public.stock_items; c public.dining_tables; d public.dining_tables; item uuid; data jsonb; answer jsonb; sale public.cash_sales;
 begin
+ select id into main from public.stock_locations where principal;
+ perform public.stock_location_operation(kitchen,'{"nome":"Fixture PDV cozinha","ativo":true}');
  select id into acc from public.financial_accounts where caixa_padrao;
  select coalesce(sum(valor),0) into baseline from public.financial_entries where conta_id=acc;
  perform public.finance_config('categories',cat,'{"nome":"Fixture PDV revenue","natureza":"INCOME","ativo":true}');
  perform public.finance_config('methods',pix,'{"nome":"Fixture PDV pix","tipo":"PIX","ativo":true,"usar_pdv":false,"prazo_dias":0,"max_parcelas":1}'||jsonb_build_object('conta_padrao_id',(select id from public.financial_accounts where caixa_padrao)));
  perform public.cash_operation(session,'OPEN',jsonb_build_object('conta_id',acc,'categoria_id',cat,'valor_abertura',0));
  insert into public.stock_items(nome,unidade,bloquear_estoque_negativo) values('Fixture PDV insumo','UN',false) returning * into stock;
- answer:=public.save_product_with_stock(null,'{"nome":"Fixture Coca","unidade":"UN","custo":1,"preco_venda":10,"ativo":true}',jsonb_build_array(jsonb_build_object('stock_item_id',stock.id,'quantidade',1)));
+ answer:=public.save_product_with_stock(null,'{"nome":"Fixture Coca","unidade":"UN","custo":1,"preco_venda":10,"ativo":true}'::jsonb||jsonb_build_object('stock_location_id',kitchen),jsonb_build_array(jsonb_build_object('stock_item_id',stock.id,'quantidade',1)));
  select * into product from public.products where id=(answer->>'id')::uuid;
  perform public.comanda_operation(pdv,'OPEN_PDV','{"identificacao":"Fixture venda"}');
  perform public.comanda_operation(pdv,'OPEN_PDV','{"identificacao":"Fixture venda"}');
@@ -51,10 +53,13 @@ begin
  if (select saldo from public.stock_items where id=stock.id)<>-3 then raise exception 'Sale stock not deducted exactly once';end if;
  select * into sale from public.cash_sales where comanda_id=pdv;
  if sale.number<>1 then raise exception 'Transfer consumed sale sequence';end if;
+ if (select saldo from public.stock_balances where stock_item_id=stock.id and location_id=kitchen)<>-3 then raise exception 'PDV did not deplete product sector';end if;
+ update public.products set stock_location_id=null where id=product.id;
  data:=jsonb_build_object('request_id',gen_random_uuid(),'motivo','Fixture reabrir');
  answer:=public.cash_sale_operation(sale.id,'REOPEN',data);perform public.cash_sale_operation(sale.id,'REOPEN',data);
  other:=(answer->>'comanda_id_aberta')::uuid;
  if (select saldo from public.stock_items where id=stock.id)<>0 then raise exception 'Reopening did not restore stock';end if;
+ if exists(select 1 from public.stock_balances where stock_item_id=stock.id and saldo<>0) then raise exception 'Reopening returned wrong sector after product change';end if;
  select * into c from public.dining_tables where id=other;
  if (select count(*) from public.dining_table_items where codigo_mesa=c.codigo_mesa and product_id=product.id)<>1 then raise exception 'Reopening lost product links';end if;
  perform public.comanda_operation(other,'CLOSE',jsonb_build_object('request_id',gen_random_uuid(),'total',30,'paid_total',0,'payments',jsonb_build_array(jsonb_build_object('forma_id',pix,'valor',30))));

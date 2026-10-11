@@ -1,14 +1,16 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import api from '../services/api';
+import useStocks from '../hooks/useStocks';
 import {productUnits} from '../services/dataMapping';
 import FormModal,{useFormClose} from '../components/FormModal';
 import useOperation from '../hooks/useOperation';
 import '../styles/pages/Users.css';
 import '../styles/pages/Produtos.css';
 
-const empty={nome:'',codigoBarras:'',categoria:'',unidade:'UN',custo:'0',precoVenda:'0',observacoes:'',ativo:true,componentes:[]};
+const empty={nome:'',codigoBarras:'',categoria:'',unidade:'UN',custo:'0',precoVenda:'0',observacoes:'',ativo:true,componentes:[],estoqueSaidaId:''};
 const money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 function ProductForm({product,onClose,onSuccess}){
+ const stocks=useStocks();
  const [initial]=useState(()=>({...empty,...Object.fromEntries(Object.keys(empty).filter(k=>product?.[k]!==undefined).map(k=>[k,product[k]]))}));
  const [form,setForm]=useState(initial);
  const [stock,setStock]=useState([]),[stockLoading,setStockLoading]=useState(true),[stockError,setStockError]=useState('');
@@ -29,7 +31,7 @@ function ProductForm({product,onClose,onSuccess}){
    <div className="users-editor-heading"><div><p className="home-eyebrow">CADASTROS</p><h2 id="product-title">{product?'Editar produto':'Novo produto'}</h2></div><button type="button" className="users-edit" onClick={close} disabled={busy} aria-label="Fechar formulário">×</button></div>
    <p className="users-editor-intro">Identificação e preços do produto. Código de barras é opcional.</p>
    {error&&<p className="users-message users-error" role="alert">{error}</p>}
-   <form onSubmit={save}><fieldset disabled={busy||stockLoading||!!stockError} className="product-fields">
+   <form onSubmit={save}><fieldset disabled={busy||stockLoading||!!stockError||stocks.loading||!!stocks.error} className="product-fields">
     <label className="product-wide">Nome do produto<input value={form.nome} onChange={e=>change('nome',e.target.value)} required maxLength={200} autoFocus/></label>
     <label className="product-wide">Código de barras (opcional)<input type="text" value={form.codigoBarras} onChange={e=>change('codigoBarras',e.target.value)} maxLength={64} aria-describedby="product-barcode-help" placeholder="Deixe vazio se o produto não tiver código"/></label>
     <small id="product-barcode-help" className="product-wide">Informe o código exatamente como está na embalagem, incluindo zeros à esquerda.</small>
@@ -37,6 +39,7 @@ function ProductForm({product,onClose,onSuccess}){
     <label>Unidade<select value={form.unidade} onChange={e=>change('unidade',e.target.value)}>{productUnits.map(u=><option key={u} value={u}>{u}</option>)}</select></label>
     <label>Custo (R$)<input type="number" min="0" max="9999999999.99" step="0.01" required value={form.custo} onChange={e=>change('custo',e.target.value)}/></label>
     <label>Preço de venda (R$)<input type="number" min="0" max="9999999999.99" step="0.01" required value={form.precoVenda} onChange={e=>change('precoVenda',e.target.value)}/></label>
+    <label className="product-wide">Estoque de saída<select value={stocks.locations.some(l=>l.principal&&l.id===form.estoqueSaidaId)?'':form.estoqueSaidaId} onChange={e=>change('estoqueSaidaId',e.target.value)}><option value="">Principal (padrão)</option>{stocks.locations.filter(l=>!l.principal&&(l.ativo||l.id===form.estoqueSaidaId)).map(l=><option key={l.id} value={l.id} disabled={!l.ativo}>{l.nome}{l.ativo?'':' (inativo)'}</option>)}</select></label><small className="product-wide">PDV e comandas darão baixa nos insumos deste setor.</small>
     <section className="product-wide product-composition" aria-label="Composição de estoque">
      <h3>Consumo de estoque por venda</h3><p>Selecione o insumo e a quantidade consumida por uma unidade deste produto. Exemplo: lata = 1; pack com 12 = 12.</p>
      {stockLoading&&<p role="status">Carregando itens de estoque…</p>}
@@ -53,6 +56,7 @@ function ProductForm({product,onClose,onSuccess}){
     <label className="product-wide">Situação<select value={String(form.ativo)} onChange={e=>change('ativo',e.target.value==='true')}><option value="true">Ativo</option><option value="false">Inativo</option></select></label>
     <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button type="submit" className="users-primary">{busy?'Salvando…':'Salvar produto'}</button></div>
    </fieldset></form>
+   {stocks.error&&<p role="alert" className="users-message users-error">{stocks.error}</p>}
    {stockError&&<p role="alert" className="users-message users-error">{stockError}</p>}
   </div>
  </FormModal>;

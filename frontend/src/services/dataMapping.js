@@ -69,7 +69,7 @@ export function supplierToRow(body) {
 
 export const productUnits = ['UN','KG','G','L','ML','M','CX','PCT'];
 export function productFromRow(row) {
- return {_id:row.id,codigoProduto:row.codigo_produto,nome:row.nome,codigoBarras:row.codigo_barras??'',categoria:row.categoria??'',unidade:row.unidade,custo:Number(row.custo),precoVenda:Number(row.preco_venda),observacoes:row.observacoes??'',ativo:row.ativo,createdAt:row.created_at,updatedAt:row.updated_at,componentes:row.componentes??[]};
+ return {_id:row.id,codigoProduto:row.codigo_produto,nome:row.nome,codigoBarras:row.codigo_barras??'',categoria:row.categoria??'',unidade:row.unidade,custo:Number(row.custo),precoVenda:Number(row.preco_venda),observacoes:row.observacoes??'',ativo:row.ativo,createdAt:row.created_at,updatedAt:row.updated_at,estoqueSaidaId:row.stock_location_id??'',componentes:row.componentes??[]};
 }
 
 export function stockQuantity(value,allowZero=false){
@@ -99,6 +99,7 @@ export function componentsToRows(components){
 }
 export function productToRow(body) {
  const row={};
+ if(body.estoqueSaidaId!==undefined){if(body.estoqueSaidaId&&!/^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(body.estoqueSaidaId))throw new Error('Estoque de saída inválido.');row.stock_location_id=body.estoqueSaidaId||null;}
  for(const key of ['nome','categoria','observacoes']) if(body[key]!==undefined)row[key]=String(body[key]).trim();
  if(row.nome!==undefined&&(!row.nome||row.nome.length>200))throw new Error('Informe um nome de até 200 caracteres.');
  if(body.codigoBarras!==undefined){

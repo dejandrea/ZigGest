@@ -3,6 +3,15 @@ import api from './api';
 import {nfeXml} from '../testFixtures/nfe';
 import {installmentPlan} from './payables';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
+it('loads location balances with composite ordering and routes stock operations',async()=>{
+ mock.responses=[{data:[{id:'main',nome:'Principal'}]},{data:[{stock_item_id:'cola',location_id:'main',saldo:24}]}];
+ const {data}=await api.get('/estoques');expect(data.balances[0].saldo).toBe(24);
+ const balanceQuery=mock.queries.find(q=>q.table==='stock_balances');expect(balanceQuery.calls.filter(c=>c[0]==='order')).toEqual([['order','stock_item_id'],['order','location_id']]);
+ await api.post('/estoques',{id:'kitchen',nome:'Cozinha',ativo:true,principal:true});
+ expect(mock.rpc).toHaveBeenCalledWith('stock_location_operation',{p_id:'kitchen',p_data:{nome:'Cozinha',ativo:true}});
+ await api.post('/estoque-transferencias',{id:'transfer',origem_id:'main',destino_id:'kitchen',item_id:'cola',quantidade:'12',saldo:999});
+ expect(mock.rpc).toHaveBeenCalledWith('transfer_stock',{p_id:'transfer',p_data:{origem_id:'main',destino_id:'kitchen',item_id:'cola',quantidade:12,observacoes:''}});
+});
 it('routes cash opening and comanda closing through atomic RPCs',async()=>{
  await api.post('/caixa',{id:'cash',action:'OPEN',data:{conta_id:'account',categoria_id:'sales',method_ids:['pix']}});
  expect(mock.rpc).toHaveBeenCalledWith('cash_operation',{p_id:'cash',p_action:'OPEN',p_data:{conta_id:'account',categoria_id:'sales',method_ids:['pix']}});

@@ -24,10 +24,10 @@ async function result(query) {
   if (error) throw applicationError(error);
   return data;
 }
-async function all(table, column, columns='*') {
+async function all(table, column, columns='*', tieColumn='id') {
   const rows = [];
   for (let start = 0; ; start += 1000) {
-    const page = await result(client().from(table).select(columns).order(column).order('id').range(start, start + 999));
+    const page = await result(client().from(table).select(columns).order(column).order(tieColumn).range(start, start + 999));
     rows.push(...page);
     if (page.length < 1000) return rows;
   }
@@ -96,6 +96,10 @@ const api = {
       const items=await result(client().from('stock_invoice_items').select('*').eq('invoice_id',id).order('n_item'));
       return {data:{...invoice,itens:items}};
     }
+    if(resource==='estoques'){
+      const [locations,balances]=await Promise.all([all('stock_locations','nome'),all('stock_balances','stock_item_id','*','location_id')]);
+      return {data:{locations,balances}};
+    }
     if(resource==='insumos')return {data:(await all('stock_items','codigo_insumo')).map(stockFromRow)};
     if(resource==='movimentacoes-estoque'){
       const rows=await all('stock_movements','created_at','id,tipo,descricao,quantidade,fator,product_id,actor_id,observacoes,created_at,ocorrido_em,invoice_id'), lines=await all('stock_movement_lines','movement_id');
@@ -133,6 +137,8 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='estoques')return {data:await result(client().rpc('stock_location_operation',{p_id:body.id,p_data:{nome:body.nome,ativo:body.ativo}}))};
+    if(resource==='estoque-transferencias')return {data:await result(client().rpc('transfer_stock',{p_id:body.id,p_data:{origem_id:body.origem_id,destino_id:body.destino_id,item_id:body.item_id,quantidade:stockQuantity(body.quantidade),observacoes:body.observacoes??''}}))};
     if(resource==='comandas'&&!id)return {data:await result(client().rpc('comanda_operation',{p_id:body.id,p_action:body.action,p_data:body.data??{}}))};
     if(resource==='caixa-vendas')return {data:await result(client().rpc('cash_sale_operation',{p_id:body.id,p_action:body.action,p_data:body.data??{}}))};
     if(resource==='caixa')return {data:await result(client().rpc('cash_operation',{p_id:body.id,p_action:body.action,p_data:body.data??{}}))};

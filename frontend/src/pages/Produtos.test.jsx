@@ -5,7 +5,7 @@ import Produtos from './Produtos';
 const api=vi.hoisted(()=>({get:vi.fn(),post:vi.fn(),put:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
 const rows=[{codigoProduto:1,nome:'Arroz',codigoBarras:'0012345678905',categoria:'Alimentos',unidade:'KG',custo:5,precoVenda:8,ativo:true},{codigoProduto:2,nome:'Café',codigoBarras:'',categoria:'Bebidas',unidade:'UN',custo:10,precoVenda:15,ativo:false}];
-beforeEach(()=>{vi.clearAllMocks();api.get.mockResolvedValue({data:rows});api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
+beforeEach(()=>{vi.clearAllMocks();api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:rows}));api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
 it('ordena os recentes e filtra por código de barras ou situação',async()=>{
  render(<Produtos/>);await screen.findByText('Arroz');
  expect(screen.getAllByRole('row')[1]).toHaveTextContent('Café');
@@ -59,7 +59,7 @@ it('mostra erro de consulta sem tratar como lista vazia',async()=>{
 });
 it('configures a pack to consume twelve units of a shared stock item',async()=>{
  const item='11111111-1111-1111-1111-111111111111';
- api.get.mockImplementation(path=>Promise.resolve({data:path==='/insumos'?[{_id:item,nome:'Coca lata',unidade:'UN',ativo:true}]:rows}));
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:path==='/insumos'?[{_id:item,nome:'Coca lata',unidade:'UN',ativo:true}]:rows}));
  render(<Produtos/>);await screen.findByText('Arroz');
  fireEvent.click(screen.getByRole('button',{name:/Novo produto/}));
  fireEvent.change(screen.getByLabelText('Nome do produto'),{target:{value:'Pack 12'}});
@@ -70,4 +70,13 @@ it('configures a pack to consume twelve units of a shared stock item',async()=>{
  await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar produto'})).toBeEnabled());
  fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
  await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/produtos',expect.objectContaining({nome:'Pack 12',componentes:[{stock_item_id:item,quantidade:'12'}]})));
+});
+it('saves the sector used by PDV and comandas, defaulting to principal',async()=>{
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[{id:'11111111-1111-4111-8111-111111111111',nome:'Cozinha',ativo:true}],balances:[]}:rows}));
+ render(<Produtos/>);await screen.findByText('Arroz');fireEvent.click(screen.getByRole('button',{name:'Editar produto Arroz'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar produto'})).toBeEnabled());
+ expect(screen.getByLabelText('Estoque de saída')).toHaveValue('');
+ fireEvent.change(screen.getByLabelText('Estoque de saída'),{target:{value:'11111111-1111-4111-8111-111111111111'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
+ await waitFor(()=>expect(api.put).toHaveBeenCalledWith('/produtos/1',expect.objectContaining({estoqueSaidaId:'11111111-1111-4111-8111-111111111111'})));
 });

@@ -7,7 +7,13 @@ const open=(props={})=>render(<MemoryRouter><Insumos {...props}/></MemoryRouter>
 const api=vi.hoisted(()=>({get:vi.fn(),post:vi.fn(),put:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
 const rows=[{_id:'i1',codigoInsumo:1,nome:'Coca-Cola lata',unidade:'UN',saldo:144,estoqueMinimo:12,ativo:true},{_id:'i2',codigoInsumo:2,nome:'Pão',unidade:'UN',saldo:0,estoqueMinimo:5,ativo:true}];
-beforeEach(()=>{vi.clearAllMocks();api.get.mockResolvedValue({data:rows});api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
+beforeEach(()=>{vi.clearAllMocks();api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:rows}));api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
+it('shows the chosen sector balance and offers transfers from the stock overview',async()=>{
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[{id:'kitchen',nome:'Cozinha',ativo:true}],balances:[{stock_item_id:'i1',location_id:'kitchen',saldo:7}]}:rows}));
+ open({overview:true});await screen.findByText('Coca-Cola lata');
+ fireEvent.change(screen.getByLabelText('Estoque / setor'),{target:{value:'kitchen'}});
+ expect(screen.getByText('7 UN')).toBeInTheDocument();expect(screen.queryByText('144 UN')).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Transferir estoque'})).toBeEnabled();
+});
 it('shows the shared balance and filters low-stock items',async()=>{
  open({overview:true});await screen.findByText('Coca-Cola lata');
  expect(screen.getByText('144 UN')).toBeInTheDocument();
@@ -47,7 +53,7 @@ it('keeps the base unit immutable in the edit form',async()=>{
  expect(screen.getByLabelText('Unidade de estoque')).toBeDisabled();
 });
 it('excludes items without a minimum from replenishment alerts and saves optional controls',async()=>{
- api.get.mockResolvedValue({data:[{...rows[0],saldo:-2,estoqueMinimo:null}]});
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:[{...rows[0],saldo:-2,estoqueMinimo:null}]}));
  open();await screen.findByText('Coca-Cola lata');
  expect(screen.getByText('-2 UN')).toBeInTheDocument();
  expect(screen.getByText('Sem limite')).toBeInTheDocument();
