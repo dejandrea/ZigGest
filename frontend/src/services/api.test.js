@@ -3,6 +3,12 @@ import api from './api';
 import {nfeXml} from '../testFixtures/nfe';
 import {installmentPlan} from './payables';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
+it('loads inventory lines and sends counts through the inventory RPC',async()=>{
+ mock.responses=[{data:[{id:'inventory',descricao:'Inventário'}]},{data:[{id:'line',inventory_id:'inventory',stock_item_id:'item',contado:0}]}];
+ const {data}=await api.get('/inventarios');expect(data[0].lines[0].contado).toBe(0);
+ await api.post('/inventarios',{id:'inventory',action:'SAVE',revision:0,data:{lines:[{item_id:'item',contado:0}]}});
+ expect(mock.rpc).toHaveBeenCalledWith('inventory_operation',{p_id:'inventory',p_action:'SAVE',p_revision:0,p_data:{lines:[{item_id:'item',contado:0}]}});
+});
 vi.mock('./supabase',()=>({supabase:{from:mock.from,rpc:mock.rpc}}));
 it('calculates separate account balances from balanced transfer entries',async()=>{
  mock.responses=[{data:[{id:'cash',nome:'Caixa'},{id:'bank',nome:'Banco'}]},{data:[]},{data:[]},{data:[]},{data:[{conta_id:'cash',valor:100},{conta_id:'cash',valor:-30},{conta_id:'bank',valor:30}]}];

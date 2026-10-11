@@ -43,6 +43,10 @@ const operations=()=>all('financial_operations','created_at',operationColumns);
 const api = {
   async get(path) {
     const [resource, id, child] = route(path);
+    if(resource==='inventarios'){
+      const [rows,lines]=await Promise.all([all('stock_inventories','created_at'),all('stock_inventory_lines','inventory_id')]);
+      return {data:rows.map(row=>({...row,lines:lines.filter(line=>line.inventory_id===row.id)}))};
+    }
     if(resource==='financeiro'){
       const [accounts,categories,methods,ops,entries]=await Promise.all([all('financial_accounts','nome'),all('financial_categories','nome'),all('financial_payment_methods','nome'),operations(),all('financial_entries','operation_id')]);
       return {data:{accounts:accounts.map(a=>({...a,saldo:entries.filter(e=>e.conta_id===a.id).reduce((sum,e)=>sum+Math.round(Number(e.valor)*100),0)/100})),categories,methods,operations:ops,entries}};
@@ -116,6 +120,7 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='inventarios')return {data:await result(client().rpc('inventory_operation',{p_id:body.id,p_action:body.action,p_revision:body.revision??null,p_data:body.data??{}}))};
     if(resource==='financeiro-config'){
       const allowed={accounts:['nome','tipo','ativo','saldo_inicial','data'],categories:['nome','natureza','ativo'],methods:['nome','tipo','ativo','conta_padrao_id','prazo_dias','max_parcelas','usar_pdv']}[id];
       if(!allowed)throw new Error('Cadastro financeiro inválido.');

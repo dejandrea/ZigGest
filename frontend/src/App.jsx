@@ -13,6 +13,7 @@ import Contas from './pages/Contas';
 import ResumoContas from './pages/ResumoContas';
 import Relatorios from './pages/Relatorios';
 import RelatorioEstoque from './pages/RelatorioEstoque';
+import Inventario from './pages/Inventario';
 import Mesas from './pages/Mesas';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
@@ -34,6 +35,7 @@ export default function App() {
       <Route path="/insumos" element={<Insumos/>}/>
       <Route path="/estoque" element={<Insumos overview/>}/>
       <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque/>}/>
+      <Route path="/estoque/inventario" element={<Inventario/>}/>
       <Route path="/financeiro" element={<FinancialMovements/>}/>
       <Route element={<ProtectedRoute admin/>}><Route path="/financeiro/configuracoes" element={<FinancialSettings/>}/></Route>
       <Route path="/contas-pagar" element={<ContasPagar/>}/>
