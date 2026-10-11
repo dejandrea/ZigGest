@@ -9,6 +9,12 @@ it('routes cash opening and comanda closing through atomic RPCs',async()=>{
  await api.post('/comandas',{id:'tab',action:'CLOSE',data:{request_id:'close',total:80,payments:[{forma_id:'pix',valor:50},{forma_id:'credit',valor:30}]}});
  expect(mock.rpc).toHaveBeenCalledWith('comanda_operation',expect.objectContaining({p_id:'tab',p_action:'CLOSE'}));
 });
+it('loads the cash dashboard and routes sale actions through guarded RPCs',async()=>{
+ mock.rpc.mockResolvedValue({data:[{id:'cash',sales:[],movements:[],expected_cash:100}],error:null});
+ const {data}=await api.get('/caixa');expect(data[0].expected_cash).toBe(100);expect(mock.rpc).toHaveBeenCalledWith('cash_dashboard');
+ await api.post('/caixa-vendas',{id:'sale',action:'REOPEN',data:{request_id:'request',motivo:'Corrigir venda'}});
+ expect(mock.rpc).toHaveBeenCalledWith('cash_sale_operation',{p_id:'sale',p_action:'REOPEN',p_data:{request_id:'request',motivo:'Corrigir venda'}});
+});
 it('links comandas to their consumption and payments and uses the renamed item route',async()=>{
  mock.responses=[{data:[{id:'c1',codigo_mesa:1},{id:'c2',codigo_mesa:2}]},{data:[{id:'i1',codigo_mesa:1}]},{data:[{id:'close',comanda_id:'c1'}]},{data:[{id:'pay',closure_id:'close'}]}];
  const {data}=await api.get('/comandas');expect(data[0].itens).toHaveLength(1);expect(data[0].pagamentos).toHaveLength(1);expect(data[1].pagamentos).toHaveLength(0);

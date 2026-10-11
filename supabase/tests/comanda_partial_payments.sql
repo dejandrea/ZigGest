@@ -33,7 +33,7 @@ begin
  data:=jsonb_build_object('request_id',request,'total',64,'paid_total',23,'mode','VALUE','customer_codigo',customer,'vencimento',(now() at time zone 'America/Bahia')::date+30,'payments',jsonb_build_array(jsonb_build_object('forma_id',pix,'valor',20),jsonb_build_object('forma_id',credit,'valor',10)));
  perform public.comanda_operation(cmd,'PAY',data);perform public.comanda_operation(cmd,'PAY',data);
  if (select total_pendente from public.customers where codigo_cliente=customer)<>10 or (select paid_total from public.dining_tables where id=cmd)<>53 then raise exception 'Wrong mixed partial settlement';end if;
- begin perform public.cash_operation(session,'CLOSE','{}');raise exception 'FAIL: cash closed with partial comanda';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
+ begin perform public.cash_operation(session,'CLOSE','{"contado":0,"esperado":0}');raise exception 'FAIL: cash closed with partial comanda';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
  begin perform public.comanda_operation(cmd,'PAY',jsonb_build_object('request_id',gen_random_uuid(),'total',64,'paid_total',53,'mode','VALUE','payments',jsonb_build_array(jsonb_build_object('forma_id',pix,'valor',12))));raise exception 'FAIL: overpayment';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
  begin perform public.comanda_operation(cmd,'PAY',jsonb_build_object('request_id',gen_random_uuid(),'total',64,'paid_total',53,'mode','ITEMS','items',jsonb_build_array(jsonb_build_object('item_id',coca,'quantidade',2)),'payments',jsonb_build_array(jsonb_build_object('forma_id',pix,'valor',16))));raise exception 'FAIL: item total exceeds balance after value payment';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
  -- Second deferred receipt creates another debt, not a duplicate or overwrite.
@@ -54,7 +54,7 @@ begin
  perform public.comanda_operation(other,'PAY',jsonb_build_object('request_id',gen_random_uuid(),'total',1,'paid_total',0,'mode','VALUE','payments',jsonb_build_array(jsonb_build_object('forma_id',pix,'valor',1))));
  if (select status from public.dining_tables where id=other)<>'aberta' then raise exception 'Partial action closed comanda';end if;
  perform public.comanda_operation(other,'CLOSE',jsonb_build_object('request_id',gen_random_uuid(),'total',1,'paid_total',1,'payments','[]'::jsonb));
- perform public.cash_operation(session,'CLOSE','{}');
+ perform public.cash_operation(session,'CLOSE','{"contado":0,"esperado":0}');
 end $$;
 rollback;
 select 'partial comanda payments passed' as result;

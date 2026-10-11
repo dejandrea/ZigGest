@@ -33,6 +33,15 @@ it('preserves the checkout when the server detects changed consumption',async()=
  render(<ComandaDetails {...props}/>);fireEvent.click(screen.getByRole('button',{name:'Encerrar comanda'}));fireEvent.click(screen.getByRole('button',{name:'Revisar pagamento'}));fireEvent.click(await screen.findByRole('button',{name:'Confirmar encerramento'}));
  await screen.findByRole('alert');expect(props.onClose).not.toHaveBeenCalled();expect(screen.getByLabelText('Valor')).toHaveValue(80);
 });
+it('offers all active payment methods and defaults the invoice flag to false',async()=>{
+ render(<ComandaDetails {...props} finance={{methods:methods.map(m=>({...m,usar_pdv:false}))}} session={{method_ids:[]}}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Encerrar comanda'}));
+ expect(screen.getByRole('option',{name:'Pix'})).toBeInTheDocument();
+ expect(screen.getByLabelText('Nota fiscal gerada para esta venda')).not.toBeChecked();
+ fireEvent.click(screen.getByLabelText('Nota fiscal gerada para esta venda'));
+ fireEvent.click(screen.getByRole('button',{name:'Revisar pagamento'}));fireEvent.click(await screen.findByRole('button',{name:'Confirmar encerramento'}));
+ await waitFor(()=>expect(mock.post).toHaveBeenCalledWith('/comandas',expect.objectContaining({data:expect.objectContaining({nota_fiscal:true})})));
+});
 it('pays selected item quantities with split forms and keeps the comanda open',async()=>{
  render(<ComandaDetails {...props}/>);
  fireEvent.click(screen.getByRole('button',{name:'Pagar itens'}));

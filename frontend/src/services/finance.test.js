@@ -22,3 +22,8 @@ it('requires a reason for reversal and sends no editable replacement amount',()=
  expect(financePayload(base)).toEqual({tipo:'REVERSAL',data:today(),descricao:'Estorno',estorno_de:'original',motivo:'Correção'});
  expect(()=>financePayload({...base,motivo:''})).toThrow('motivo');
 });
+it('settles a canceled sale debt without counting it as a new receipt',()=>{
+ const ops=[{id:'void',tipo:'SALE_VOID',debito_id:'debt',valor:30}];
+ expect(settledAmount(ops,'debito_id','debt')).toBe(30);
+ expect(()=>financePayload({tipo:'SALE_VOID',valor:30,data:today(),descricao:'Forjado'})).toThrow('tipo');
+});

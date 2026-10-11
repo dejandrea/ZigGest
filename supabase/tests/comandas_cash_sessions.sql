@@ -18,7 +18,7 @@ begin
  perform public.comanda_operation(cmd,'OPEN','{"identificacao":"Fixture avulso"}');
  select * into tab from public.dining_tables where id=cmd;
  insert into public.dining_table_items(codigo_mesa,descricao,valor_unitario,quantidade) values(tab.codigo_mesa,'Consumo',10,8);
- begin perform public.cash_operation(session,'CLOSE','{}');raise exception 'FAIL: cash closed with open comanda';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
+ begin perform public.cash_operation(session,'CLOSE','{"contado":0,"esperado":0}');raise exception 'FAIL: cash closed with open comanda';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
  data:=jsonb_build_object('request_id',request,'total',80,'vencimento',(now() at time zone 'America/Bahia')::date+30,'payments',jsonb_build_array(jsonb_build_object('forma_id',pix,'valor',50),jsonb_build_object('forma_id',credit,'valor',30)));
  begin perform public.comanda_operation(cmd,'CLOSE',data);raise exception 'FAIL: unregistered deferred';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
  if exists(select 1 from public.financial_entries where conta_id=acc) then raise exception 'Partial failed settlement moved money';end if;
@@ -40,7 +40,7 @@ begin
  begin insert into public.dining_table_items(codigo_mesa,descricao,valor_unitario,quantidade) values(tab.codigo_mesa,'Closed item',1,1);raise exception 'FAIL: closed item';exception when invalid_parameter_value then null;end;
  begin update public.dining_tables set status='aberta' where id=cmd;raise exception 'FAIL: direct reopening';exception when insufficient_privilege then null;end;
  begin update public.customer_ledger set amount=5 where id=debit;raise exception 'FAIL: edit origin debt';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
- perform public.cash_operation(session,'CLOSE','{}');perform public.cash_operation(session,'CLOSE','{}');
+ perform public.cash_operation(session,'CLOSE','{"contado":0,"esperado":0}');perform public.cash_operation(session,'CLOSE','{"contado":0,"esperado":0}');
  if (select status from public.cash_sessions where id=session)<>'CLOSED' then raise exception 'Cash close failed';end if;
  perform public.comanda_operation(cmd,'CLOSE',data);
  perform public.finance_operation(gen_random_uuid(),jsonb_build_object('tipo','RECEIPT','valor',30,'data',(now() at time zone 'America/Bahia')::date,'descricao','Fixture debt receipt','conta_id',acc,'forma_id',pix,'debito_id',debit));

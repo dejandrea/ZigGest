@@ -55,7 +55,7 @@ const api = {
         return {...row,lancamentos:settlements,encerramento:settlements.find(s=>(s.kind??'CLOSE')==='CLOSE'),itens:(itemsByCode.get(row.codigo_mesa)??[]).map(item=>({...item,quantidade_paga:paidQuantities.get(item.id)??0})),pagamentos:settlements.flatMap(s=>(paymentsByClosure.get(s.id)??[]).map(p=>({...p,cash_session_id:s.cash_session_id})))};
       })};
     }
-    if(resource==='caixa')return {data:await all('cash_sessions','opened_at')};
+    if(resource==='caixa')return {data:await result(client().rpc('cash_dashboard'))};
     if(resource==='inventarios'){
       const [rows,lines]=await Promise.all([all('stock_inventories','created_at'),all('stock_inventory_lines','inventory_id')]);
       return {data:rows.map(row=>({...row,lines:lines.filter(line=>line.inventory_id===row.id)}))};
@@ -134,6 +134,7 @@ const api = {
   async post(path, body) {
     const [resource,id,child] = route(path);
     if(resource==='comandas'&&!id)return {data:await result(client().rpc('comanda_operation',{p_id:body.id,p_action:body.action,p_data:body.data??{}}))};
+    if(resource==='caixa-vendas')return {data:await result(client().rpc('cash_sale_operation',{p_id:body.id,p_action:body.action,p_data:body.data??{}}))};
     if(resource==='caixa')return {data:await result(client().rpc('cash_operation',{p_id:body.id,p_action:body.action,p_data:body.data??{}}))};
     if(resource==='inventarios')return {data:await result(client().rpc('inventory_operation',{p_id:body.id,p_action:body.action,p_revision:body.revision??null,p_data:body.data??{}}))};
     if(resource==='financeiro-config'){

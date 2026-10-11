@@ -12,9 +12,9 @@ Pagamentos imediatos geram entradas financeiras com a categoria configurada no c
 
 Encerramentos são transacionais e não reaplicam valores em tentativas repetidas. Itens encerrados e débitos de origem são protegidos contra edição e exclusão. A baixa do débito usa o fluxo existente de recebimentos, inclusive parciais. Estornos financeiros permanecem disponíveis ao administrador; não reabrem a comanda.
 
-A base de caixa permite uma sessão aberta por estabelecimento, seleção de formas de pagamento, acompanhamento por forma e fechamento com histórico. Qualquer comanda aberta impede o fechamento no banco. Comandas antigas abertas são vinculadas ao primeiro caixa aberto. Saldos de abertura e fechamento são referências da conta financeira, não contagens físicas de dinheiro.
+A base de caixa permite uma sessão aberta por estabelecimento, todas as formas de pagamento ativas, acompanhamento por forma e fechamento com histórico. Qualquer comanda aberta impede o fechamento no banco. Comandas antigas abertas são vinculadas ao primeiro caixa aberto. Saldos financeiros e contagens físicas ficam separados. A evolução de abertura, sangria, suprimento, conferência e vendas está descrita em [Operações de caixa](CAIXA_REPORT.md).
 
-O consumo mantém o lançamento manual de descrição, preço e quantidade. O vínculo de produtos e a baixa automática de estoque serão tratados com o PDV. Esta etapa não inclui sangria, suprimento ou conferência física do caixa.
+O consumo mantém o lançamento manual de descrição, preço e quantidade. O vínculo de produtos e a baixa automática de estoque serão tratados com o PDV.
 
 ## Verificação
 

@@ -12,6 +12,7 @@ import ContasPagar from './pages/ContasPagar';
 import Contas from './pages/Contas';
 import ResumoContas from './pages/ResumoContas';
 import Relatorios from './pages/Relatorios';
+import ReportComingSoon from './pages/ReportComingSoon';
 import RelatorioEstoque from './pages/RelatorioEstoque';
 import Inventario from './pages/Inventario';
 import Comandas from './pages/Comandas';
@@ -45,6 +46,8 @@ export default function App() {
       <Route path="/relatorios" element={<Relatorios/>}/>
       <Route path="/relatorios/financeiro" element={<ResumoContas report/>}/>
       <Route path="/relatorios/estoque" element={<RelatorioEstoque/>}/>
+      <Route path="/relatorios/logs" element={<ReportComingSoon title="Registros de operações" description="Histórico de ações, responsáveis e alterações no sistema."/>}/>
+      <Route path="/relatorios/vendas-notas" element={<ReportComingSoon title="Vendas e notas fiscais" description="Vendas com nota fiscal gerada e sem nota fiscal gerada."/>}/>
       <Route path="/comandas" element={<Comandas/>}/>
       <Route path="/caixa" element={<Caixa/>}/>
       <Route path="/mesas" element={<Navigate to="/comandas" replace/>}/>
