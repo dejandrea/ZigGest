@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import '../styles/components/FormModal.css';
+import '../styles/components/CompactForms.css';
 export function useFormClose(onClose,dirty,busy){
   return ()=>{
     if(busy)return;

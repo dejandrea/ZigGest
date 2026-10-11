@@ -24,6 +24,7 @@ import Users from './pages/Users';
 import AppLayout from './components/AppLayout';
 import ProtectedRoute from './auth/ProtectedRoute';
 import './App.css';
+import './styles/components/CompactForms.css';
 
 export default function App() {
   return <Routes>
