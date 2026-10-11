@@ -56,6 +56,11 @@ const api = {
       })};
     }
     if(resource==='caixa')return {data:await result(client().rpc('cash_dashboard'))};
+    if(resource==='alertas-estoque')return {data:(await all('low_stock_alerts','started_at')).filter(a=>a.ativo)};
+    if(resource==='compras'){
+      const [items,suppliers,rounds]=await Promise.all([api.get('/insumos'),api.get('/fornecedores'),all('purchase_rounds','created_at','id,numero,nome,status,revision,items,offers,decision,actor_id,created_at,updated_at')]);
+      return {data:{items:items.data.filter(i=>i.ativo&&i.estoqueMinimo!=null&&i.saldo<=i.estoqueMinimo),suppliers:suppliers.data,rounds}};
+    }
     if(resource==='inventarios'){
       const [rows,lines]=await Promise.all([all('stock_inventories','created_at'),all('stock_inventory_lines','inventory_id')]);
       return {data:rows.map(row=>({...row,lines:lines.filter(line=>line.inventory_id===row.id)}))};
@@ -100,7 +105,10 @@ const api = {
       const [locations,balances]=await Promise.all([all('stock_locations','nome'),all('stock_balances','stock_item_id','*','location_id')]);
       return {data:{locations,balances}};
     }
-    if(resource==='insumos')return {data:(await all('stock_items','codigo_insumo')).map(stockFromRow)};
+    if(resource==='insumos'){
+      const [items,links]=await Promise.all([all('stock_items','codigo_insumo'),all('stock_item_suppliers','stock_item_id')]);
+      return {data:items.map(row=>stockFromRow({...row,fornecedores:links.filter(l=>l.stock_item_id===row.id)}))};
+    }
     if(resource==='movimentacoes-estoque'){
       const rows=await all('stock_movements','created_at','id,tipo,descricao,quantidade,fator,product_id,actor_id,observacoes,created_at,ocorrido_em,invoice_id'), lines=await all('stock_movement_lines','movement_id');
       return {data:rows.map(r=>({...r,linhas:lines.filter(l=>l.movement_id===r.id)}))};
@@ -137,6 +145,7 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='compras')return {data:await result(client().rpc('purchase_operation',{p_id:body.id,p_action:body.action,p_revision:body.revision??null,p_data:body.data??{}}))};
     if(resource==='estoques')return {data:await result(client().rpc('stock_location_operation',{p_id:body.id,p_data:{nome:body.nome,ativo:body.ativo}}))};
     if(resource==='estoque-transferencias')return {data:await result(client().rpc('transfer_stock',{p_id:body.id,p_data:{origem_id:body.origem_id,destino_id:body.destino_id,item_id:body.item_id,quantidade:stockQuantity(body.quantidade),observacoes:body.observacoes??''}}))};
     if(resource==='comandas'&&!id)return {data:await result(client().rpc('comanda_operation',{p_id:body.id,p_action:body.action,p_data:body.data??{}}))};
@@ -167,6 +176,7 @@ const api = {
       return {data:await result(client().rpc('import_stock_invoice',{p_request:body.requestId,p_xml:body.xml,p_lines:lines,p_ocorrido_em:date?.toISOString()??null,p_observacoes:body.observacoes??''}))};
     }
     if(resource==='insumos'){
+      if(body.fornecedoresIds!==undefined)return {data:stockFromRow(await result(client().rpc('save_purchase_item',{p_codigo:null,p_data:stockToRow(body),p_suppliers:body.fornecedoresIds})))};
       const changes=stockToRow(body);return {data:stockFromRow(await result(client().from('stock_items').insert(changes).select().single()))};
     }
     if(resource==='movimentacoes-estoque'){
@@ -208,6 +218,7 @@ const api = {
     const [resource,id,child,itemId] = route(path);
     if(resource==='contas-pagar')return {data:await result(client().rpc('save_supplier_payable',{p_id:id,p_source:body.sourceId||null,p_data:payablePayload(body),p_edit:true}))};
     if(resource==='insumos'){
+      if(body.fornecedoresIds!==undefined)return {data:stockFromRow(await result(client().rpc('save_purchase_item',{p_codigo:code(id),p_data:stockToRow(body,true),p_suppliers:body.fornecedoresIds})))};
       const changes=stockToRow(body,true);return {data:stockFromRow(await result(client().from('stock_items').update(changes).eq('codigo_insumo',code(id)).select().single()))};
     }
     if ((resource === 'mesas' || resource === 'comandas') && child === 'itens') {
@@ -252,4 +263,7 @@ const api = {
     return { data: null };
   },
 };
+for(const method of ['post','put','delete']){
+ const operation=api[method];api[method]=async(...args)=>{const answer=await operation.apply(api,args);if(typeof window!=='undefined')window.dispatchEvent(new Event('ziggest:data-changed'));return answer;};
+}
 export default api;

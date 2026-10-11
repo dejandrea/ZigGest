@@ -8,6 +8,7 @@ begin
  lines:=jsonb_build_array(jsonb_build_object('n_item',1,'stock_item_id',item,'descricao','Cola packs','unidade','PCT','codigo','','quantidade_nf',2,'valor_unitario',48,'valor_total',96,'quantidade',2,'fator',12));
  perform public.record_manual_stock_invoice(request,h,lines,now()-interval '1 day','Manual entry');
  if (select saldo from public.stock_items where id=item)<>24 then raise exception '2x12 should be 24';end if;
+ if not exists(select 1 from public.stock_item_suppliers l join public.suppliers s on s.id=l.supplier_id where l.stock_item_id=item and regexp_replace(s.documento,'[^0-9]','','g')='12345678000195' and l.ultimo_preco=4) then raise exception 'Manual NF supplier or base-unit cost not linked';end if;
  if not exists(select 1 from public.stock_invoices where id=request and origem='MANUAL' and chave is null and xml_original is null) then raise exception 'Manual source not preserved';end if;
  perform public.record_manual_stock_invoice(request,h,lines,now()-interval '1 day','Manual entry');
  if (select saldo from public.stock_items where id=item)<>24 then raise exception 'Retry duplicated stock';end if;

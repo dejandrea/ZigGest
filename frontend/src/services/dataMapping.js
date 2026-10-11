@@ -77,7 +77,7 @@ export function stockQuantity(value,allowZero=false){
  if(!/^\d+(\.\d{1,3})?$/.test(text)||!Number.isFinite(number)||number>999999999999.999||(!allowZero&&number===0))throw new Error('Quantidade inválida. Use até três casas decimais.');
  return number;
 }
-export function stockFromRow(row){return {_id:row.id,codigoInsumo:row.codigo_insumo,nome:row.nome,unidade:row.unidade,saldo:Number(row.saldo),estoqueMinimo:row.estoque_minimo==null?null:Number(row.estoque_minimo),bloquearEstoqueNegativo:row.bloquear_estoque_negativo??false,observacoes:row.observacoes??'',ativo:row.ativo};}
+export function stockFromRow(row){return {fornecedores:row.fornecedores??[],fornecedoresIds:row.fornecedores_ids??(row.fornecedores??[]).map(l=>l.supplier_id),_id:row.id,codigoInsumo:row.codigo_insumo,nome:row.nome,unidade:row.unidade,saldo:Number(row.saldo),estoqueMinimo:row.estoque_minimo==null?null:Number(row.estoque_minimo),bloquearEstoqueNegativo:row.bloquear_estoque_negativo??false,observacoes:row.observacoes??'',ativo:row.ativo};}
 export function stockToRow(body,editing=false){
  const row={};
  if(body.nome!==undefined){row.nome=String(body.nome).trim();if(!row.nome||row.nome.length>200)throw new Error('Informe o nome do item de estoque.');}

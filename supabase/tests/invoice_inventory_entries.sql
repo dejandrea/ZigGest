@@ -29,6 +29,7 @@ begin
  product:=public.save_product_with_stock(null,'{"nome":"Fixture invoice sale"}',jsonb_build_array(jsonb_build_object('stock_item_id',item,'quantidade',1)));
  perform public.record_stock_movement(gen_random_uuid(),'SAIDA',null,(product->>'codigo_produto')::bigint,5,1,'Sold before invoice');
  perform public.import_stock_invoice(request,xml,links,arrival,'Invoice arrival');
+ if not exists(select 1 from public.stock_item_suppliers l join public.suppliers s on s.id=l.supplier_id where l.stock_item_id=item and regexp_replace(s.documento,'[^0-9]','','g')='12345678000195' and l.ultimo_preco=4) then raise exception 'XML supplier or normalized cost not linked';end if;
  if (select saldo from public.stock_items where id=item)<>19 then raise exception '2 packs x 12 should reconcile -5 to 19';end if;
  if (select emitente_nome from public.stock_invoices where id=request)<>'Fixture supplier & Drinks' or (select xml_original from public.stock_invoices where id=request)<>xml then raise exception 'Original invoice not preserved';end if;
  if (select ocorrido_em from public.stock_movements where id=request)<>arrival then raise exception 'Retroactive arrival lost';end if;

@@ -8,6 +8,17 @@ const api=vi.hoisted(()=>({get:vi.fn(),post:vi.fn(),put:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
 const rows=[{_id:'i1',codigoInsumo:1,nome:'Coca-Cola lata',unidade:'UN',saldo:144,estoqueMinimo:12,ativo:true},{_id:'i2',codigoInsumo:2,nome:'Pão',unidade:'UN',saldo:0,estoqueMinimo:5,ativo:true}];
 beforeEach(()=>{vi.clearAllMocks();api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:rows}));api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
+it('saves three supplier links together with the insumo without touching its balance',async()=>{
+ const vendors=[{_id:'s1',nome:'Fornecedor um',ativo:true},{_id:'s2',nome:'Fornecedor dois',ativo:true},{_id:'s3',nome:'Fornecedor três',ativo:true}];
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/fornecedores'?vendors:path==='/estoques'?{locations:[],balances:[]}:rows}));
+ open();await screen.findByText('Coca-Cola lata');fireEvent.click(screen.getByRole('button',{name:/Novo item/}));
+ await waitFor(()=>expect(screen.getByLabelText('Fornecedor 1')).toBeEnabled());
+ fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Refrigerante'}});
+ for(let index=1;index<=3;index++)fireEvent.change(screen.getByLabelText('Fornecedor '+index),{target:{value:'s'+index}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar item'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/insumos',expect.objectContaining({nome:'Refrigerante',fornecedoresIds:['s1','s2','s3']})));
+ expect(api.post.mock.calls[0][1]).not.toHaveProperty('saldo');
+});
 it('shows the chosen sector balance and offers transfers from the stock overview',async()=>{
  api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[{id:'kitchen',nome:'Cozinha',ativo:true}],balances:[{stock_item_id:'i1',location_id:'kitchen',saldo:7}]}:rows}));
  open({overview:true});await screen.findByText('Coca-Cola lata');

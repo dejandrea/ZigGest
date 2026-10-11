@@ -17,6 +17,7 @@ import RelatorioEstoque from './pages/RelatorioEstoque';
 import Inventario from './pages/Inventario';
 import Comandas from './pages/Comandas';
 import Caixa from './pages/Caixa';
+import Compras from './pages/Compras';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import Users from './pages/Users';
@@ -51,6 +52,7 @@ export default function App() {
       <Route path="/comandas" element={<Comandas/>}/>
       <Route path="/pdv" element={<Comandas pdv/>}/>
       <Route path="/caixa" element={<Caixa/>}/>
+      <Route path="/compras" element={<Compras/>}/>
       <Route path="/mesas" element={<Navigate to="/comandas" replace/>}/>
       <Route element={<ProtectedRoute admin/>}><Route path="/usuarios" element={<Users/>}/></Route>
       </Route>

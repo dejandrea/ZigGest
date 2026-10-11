@@ -3,6 +3,13 @@ import api from './api';
 import {nfeXml} from '../testFixtures/nfe';
 import {installmentPlan} from './payables';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
+it('saves suppliers atomically with a stock item and sends purchase operations to their RPC',async()=>{
+ mock.rpc.mockResolvedValue({data:{id:'item',nome:'Coca',unidade:'UN',saldo:0,fornecedores_ids:['s1','s2','s3']},error:null});
+ const {data}=await api.post('/insumos',{nome:'Coca',unidade:'UN',fornecedoresIds:['s1','s2','s3'],saldo:500});
+ expect(data.fornecedoresIds).toEqual(['s1','s2','s3']);expect(mock.rpc).toHaveBeenCalledWith('save_purchase_item',{p_codigo:null,p_data:{nome:'Coca',unidade:'UN'},p_suppliers:['s1','s2','s3']});
+ await api.post('/compras',{id:'quote',action:'DECIDE',revision:3,data:{strategy:'TOTAL',request_id:'retry'}});
+ expect(mock.rpc).toHaveBeenCalledWith('purchase_operation',{p_id:'quote',p_action:'DECIDE',p_revision:3,p_data:{strategy:'TOTAL',request_id:'retry'}});
+});
 it('loads location balances with composite ordering and routes stock operations',async()=>{
  mock.responses=[{data:[{id:'main',nome:'Principal'}]},{data:[{stock_item_id:'cola',location_id:'main',saldo:24}]}];
  const {data}=await api.get('/estoques');expect(data.balances[0].saldo).toBe(24);
