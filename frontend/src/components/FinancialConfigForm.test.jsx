@@ -5,6 +5,20 @@ import FinancialConfigForm from './FinancialConfigForm';
 const api=vi.hoisted(()=>({post:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
 beforeEach(()=>{vi.clearAllMocks();api.post.mockResolvedValue({data:{}});});
+it('suggests the initial bank for a new Pix method but permits a custom destination',async()=>{
+ render(<FinancialConfigForm kind="methods" accounts={[{id:'bank',nome:'Conta banco',banco_inicial:true,ativo:true},{id:'custom',nome:'Outro banco',ativo:true}]} onClose={vi.fn()} onSuccess={vi.fn()}/>);
+ fireEvent.change(screen.getByLabelText('Nome'),{target:{value:'Pix'}});fireEvent.change(screen.getByLabelText('Tipo'),{target:{value:'PIX'}});
+ expect(screen.getByLabelText('Conta padrão')).toHaveValue('bank');fireEvent.change(screen.getByLabelText('Conta padrão'),{target:{value:'custom'}});fireEvent.click(screen.getByRole('button',{name:'Salvar configuração'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/financeiro-config/methods',expect.objectContaining({conta_padrao_id:'custom'})));
+});
+it('allows renaming and changing the seeded bank account',()=>{
+ render(<FinancialConfigForm kind="accounts" item={{id:'bank',nome:'Conta banco',tipo:'BANK',ativo:true,banco_inicial:true}} onClose={vi.fn()} onSuccess={vi.fn()}/>);
+ expect(screen.getByLabelText('Nome')).toBeEnabled();expect(screen.getByLabelText('Tipo')).toBeEnabled();expect(screen.getByLabelText('Situação')).toBeEnabled();
+});
+it('protects the default cash account fields',()=>{
+ render(<FinancialConfigForm kind="accounts" item={{id:'cash',nome:'Conta caixa',tipo:'CASH',ativo:true,caixa_padrao:true}} onClose={vi.fn()} onSuccess={vi.fn()}/>);
+ expect(screen.getByLabelText('Nome')).toBeDisabled();expect(screen.getByLabelText('Tipo')).toBeDisabled();expect(screen.getByLabelText('Situação')).toBeDisabled();
+});
 it('retains the same account id when retrying opening balance creation',async()=>{
  api.post.mockRejectedValueOnce(new Error('Resposta perdida'));
  render(<FinancialConfigForm kind="accounts" onClose={vi.fn()} onSuccess={vi.fn()}/>);

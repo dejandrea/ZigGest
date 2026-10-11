@@ -2,6 +2,8 @@ import {cents,validDate} from './payables';
 export const accountTypes={CASH:'Dinheiro / caixa',BANK:'Conta bancária',CARD:'Valores de cartões',WALLET:'Carteira digital'};
 export const methodTypes={CASH:'Dinheiro',PIX:'Pix',CREDIT_CARD:'Cartão de crédito',DEBIT_CARD:'Cartão de débito',TRANSFER:'Transferência',BOLETO:'Boleto',DEFERRED:'A prazo',OTHER:'Outros'};
 export const operationTypes={PAYMENT:'Pagamento',RECEIPT:'Recebimento',TRANSFER:'Transferência',INCOME:'Entrada avulsa',EXPENSE:'Saída avulsa',OPENING:'Saldo inicial',ALLOCATION:'Vínculo de crédito',REVERSAL:'Estorno',SALE_VOID:'Anulação de venda'};
+export const bankMethodTypes=['PIX','CREDIT_CARD','DEBIT_CARD','BOLETO'];
+export function receivingAccount(method,accounts=[]){return method?.conta_padrao_id||(bankMethodTypes.includes(method?.tipo)?accounts.find(a=>a.banco_inicial)?.id:'')||'';}
 export const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Bahia'});
 export const money=value=>Number(value??0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 export function activeOperations(operations=[]){const reversed=new Set(operations.map(o=>o.estorno_de).filter(Boolean));return operations.filter(o=>o.tipo!=='REVERSAL'&&!reversed.has(o.id));}

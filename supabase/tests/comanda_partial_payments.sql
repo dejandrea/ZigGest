@@ -4,13 +4,14 @@ update public.cash_sessions set status='CLOSED' where status='OPEN';
 do $$begin perform set_config('request.jwt.claim.sub',(select id::text from auth.users where lower(email)='dejandrea@gmail.com'),true);end $$;
 set local role authenticated;
 do $$
-declare acc uuid:=gen_random_uuid();cat uuid:=gen_random_uuid();pix uuid:=gen_random_uuid();credit uuid:=gen_random_uuid();
+declare baseline numeric; acc uuid:=gen_random_uuid();cat uuid:=gen_random_uuid();pix uuid:=gen_random_uuid();credit uuid:=gen_random_uuid();
  session uuid:=gen_random_uuid();cmd uuid:=gen_random_uuid();other uuid:=gen_random_uuid();customer integer;tab public.dining_tables;
  coca uuid;beer uuid;snack uuid;data jsonb;request uuid:=gen_random_uuid();debit uuid;
 begin
- perform public.finance_config('accounts',acc,'{"nome":"Fixture partial account","tipo":"CASH","ativo":true,"saldo_inicial":0}');
+ select id into acc from public.financial_accounts where caixa_padrao;
+ select coalesce(sum(valor),0) into baseline from public.financial_entries where conta_id=acc;
  perform public.finance_config('categories',cat,'{"nome":"Fixture partial category","natureza":"INCOME","ativo":true}');
- perform public.finance_config('methods',pix,'{"nome":"Fixture partial pix","tipo":"PIX","ativo":true,"usar_pdv":true,"prazo_dias":0,"max_parcelas":1}');
+ perform public.finance_config('methods',pix,'{"nome":"Fixture partial pix","tipo":"PIX","ativo":true,"usar_pdv":true,"prazo_dias":0,"max_parcelas":1}'||jsonb_build_object('conta_padrao_id',(select id from public.financial_accounts where caixa_padrao)));
  perform public.finance_config('methods',credit,'{"nome":"Fixture partial deferred","tipo":"DEFERRED","ativo":true,"usar_pdv":true,"prazo_dias":30,"max_parcelas":1}');
  perform public.cash_operation(session,'OPEN',jsonb_build_object('conta_id',acc,'categoria_id',cat,'method_ids',jsonb_build_array(pix)));
  perform public.comanda_operation(cmd,'OPEN','{"identificacao":"Três pessoas"}');
@@ -45,7 +46,7 @@ begin
  data:=jsonb_build_object('request_id',gen_random_uuid(),'total',64,'paid_total',58,'payments',jsonb_build_array(jsonb_build_object('forma_id',pix,'valor',6)));
  perform public.comanda_operation(cmd,'CLOSE',data);perform public.comanda_operation(cmd,'CLOSE',data);
  if (select status from public.dining_tables where id=cmd)<>'fechada' or (select paid_total from public.dining_tables where id=cmd)<>64 then raise exception 'Final close failed';end if;
- if (select sum(valor) from public.financial_entries where conta_id=acc)<>49 then raise exception 'Wrong cash receipts';end if;
+ if (select sum(valor) from public.financial_entries where conta_id=acc)-baseline<>49 then raise exception 'Wrong cash receipts';end if;
  if (select count(*) from public.comanda_closures where comanda_id=cmd)<>4 then raise exception 'Wrong settlement count';end if;
  -- Full amount via PAY still requires explicit close, which can have no payments.
  perform public.comanda_operation(other,'OPEN','{"identificacao":"Pago integralmente"}');

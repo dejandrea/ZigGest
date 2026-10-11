@@ -4,13 +4,14 @@ update public.cash_sessions set status='CLOSED' where status='OPEN';
 do $$begin perform set_config('request.jwt.claim.sub',(select id::text from auth.users where lower(email)='dejandrea@gmail.com'),true);end $$;
 set local role authenticated;
 do $$
-declare acc uuid:=gen_random_uuid(); cat uuid:=gen_random_uuid(); pix uuid:=gen_random_uuid(); session uuid:=gen_random_uuid();
+declare baseline numeric; acc uuid:=gen_random_uuid(); cat uuid:=gen_random_uuid(); pix uuid:=gen_random_uuid(); session uuid:=gen_random_uuid();
  pdv uuid:=gen_random_uuid(); dest uuid:=gen_random_uuid(); fresh uuid:=gen_random_uuid(); other uuid:=gen_random_uuid();
  product public.products; stock public.stock_items; c public.dining_tables; d public.dining_tables; item uuid; data jsonb; answer jsonb; sale public.cash_sales;
 begin
- perform public.finance_config('accounts',acc,'{"nome":"Fixture PDV cash","tipo":"CASH","ativo":true}');
+ select id into acc from public.financial_accounts where caixa_padrao;
+ select coalesce(sum(valor),0) into baseline from public.financial_entries where conta_id=acc;
  perform public.finance_config('categories',cat,'{"nome":"Fixture PDV revenue","natureza":"INCOME","ativo":true}');
- perform public.finance_config('methods',pix,'{"nome":"Fixture PDV pix","tipo":"PIX","ativo":true,"usar_pdv":false,"prazo_dias":0,"max_parcelas":1}');
+ perform public.finance_config('methods',pix,'{"nome":"Fixture PDV pix","tipo":"PIX","ativo":true,"usar_pdv":false,"prazo_dias":0,"max_parcelas":1}'||jsonb_build_object('conta_padrao_id',(select id from public.financial_accounts where caixa_padrao)));
  perform public.cash_operation(session,'OPEN',jsonb_build_object('conta_id',acc,'categoria_id',cat,'valor_abertura',0));
  insert into public.stock_items(nome,unidade,bloquear_estoque_negativo) values('Fixture PDV insumo','UN',false) returning * into stock;
  answer:=public.save_product_with_stock(null,'{"nome":"Fixture Coca","unidade":"UN","custo":1,"preco_venda":10,"ativo":true}',jsonb_build_array(jsonb_build_object('stock_item_id',stock.id,'quantidade',1)));

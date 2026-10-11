@@ -7,7 +7,7 @@ const mock=vi.hoisted(()=>({get:vi.fn(),post:vi.fn(),admin:true}));
 vi.mock('../services/api',()=>({default:mock}));
 vi.mock('../auth/AuthContext',()=>({useAuth:()=>({isAdmin:mock.admin})}));
 beforeEach(()=>{vi.clearAllMocks();mock.admin=true;mock.post.mockResolvedValue({data:{}});});
-const finance={accounts:[{id:'cash',nome:'Caixa físico',tipo:'CASH',saldo:100,ativo:true},{id:'bank',nome:'Banco',tipo:'BANK',saldo:100,ativo:true}],categories:[{id:'sales',nome:'Vendas',natureza:'INCOME',ativo:true}],methods:[{id:'pix',nome:'Pix',tipo:'PIX',ativo:true,usar_pdv:false}],operations:[]};
+const finance={accounts:[{id:'cash',nome:'Conta caixa',caixa_padrao:true,tipo:'CASH',saldo:100,ativo:true},{id:'bank',nome:'Banco',tipo:'BANK',saldo:100,ativo:true}],categories:[{id:'sales',nome:'Vendas',natureza:'INCOME',ativo:true}],methods:[{id:'pix',nome:'Pix',tipo:'PIX',ativo:true,usar_pdv:false}],operations:[]};
 it('keeps cash closing disabled while comandas are open',async()=>{
  mock.get.mockImplementation(path=>Promise.resolve({data:path==='/caixa'?[{id:'session',status:'OPEN',conta_id:'cash',method_ids:['pix'],opened_at:'2026-10-11T03:00:00Z'}]:path==='/comandas'?[{id:'c1',status:'aberta',pagamentos:[]}]:finance}));
  render(<MemoryRouter><Caixa/></MemoryRouter>);await screen.findByRole('button',{name:'Fechar caixa'});expect(screen.getByRole('button',{name:'Fechar caixa'})).toBeDisabled();expect(mock.post).not.toHaveBeenCalled();
@@ -15,7 +15,7 @@ it('keeps cash closing disabled while comandas are open',async()=>{
 it('opens cash with a starting amount and enables all methods automatically',async()=>{
  mock.get.mockImplementation(path=>Promise.resolve({data:path==='/financeiro'?finance:[]}));
  render(<MemoryRouter><Caixa/></MemoryRouter>);await screen.findByLabelText('Conta financeira do caixa');
- fireEvent.change(screen.getByLabelText('Conta financeira do caixa'),{target:{value:'cash'}});fireEvent.change(screen.getByLabelText('Categoria das receitas'),{target:{value:'sales'}});fireEvent.change(screen.getByLabelText('Valor de abertura'),{target:{value:'50'}});fireEvent.click(screen.getByRole('button',{name:'Abrir caixa'}));
+ expect(screen.getByLabelText('Conta financeira do caixa')).toHaveAttribute('readonly');fireEvent.change(screen.getByLabelText('Categoria das receitas'),{target:{value:'sales'}});fireEvent.change(screen.getByLabelText('Valor de abertura'),{target:{value:'50'}});fireEvent.click(screen.getByRole('button',{name:'Abrir caixa'}));
  await waitFor(()=>expect(mock.post).toHaveBeenCalledWith('/caixa',expect.objectContaining({action:'OPEN',data:{conta_id:'cash',categoria_id:'sales',valor_abertura:50,origem_id:null}})));
  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
 });

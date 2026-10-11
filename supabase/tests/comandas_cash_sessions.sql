@@ -4,12 +4,13 @@ update public.cash_sessions set status='CLOSED' where status='OPEN';
 do $$begin perform set_config('request.jwt.claim.sub',(select id::text from auth.users where lower(email)='dejandrea@gmail.com'),true);end $$;
 set local role authenticated;
 do $$
-declare acc uuid:=gen_random_uuid();cat uuid:=gen_random_uuid();pix uuid:=gen_random_uuid();credit uuid:=gen_random_uuid();
+declare baseline numeric; acc uuid:=gen_random_uuid();cat uuid:=gen_random_uuid();pix uuid:=gen_random_uuid();credit uuid:=gen_random_uuid();
  session uuid:=gen_random_uuid();cmd uuid:=gen_random_uuid();customer integer;tab public.dining_tables;data jsonb;request uuid:=gen_random_uuid();debit uuid;
 begin
- perform public.finance_config('accounts',acc,'{"nome":"Fixture comanda account","tipo":"CASH","ativo":true,"saldo_inicial":0}');
+ select id into acc from public.financial_accounts where caixa_padrao;
+ select coalesce(sum(valor),0) into baseline from public.financial_entries where conta_id=acc;
  perform public.finance_config('categories',cat,'{"nome":"Fixture comanda category","natureza":"INCOME","ativo":true}');
- perform public.finance_config('methods',pix,'{"nome":"Fixture comanda pix","tipo":"PIX","ativo":true,"usar_pdv":true,"prazo_dias":0,"max_parcelas":1}');
+ perform public.finance_config('methods',pix,'{"nome":"Fixture comanda pix","tipo":"PIX","ativo":true,"usar_pdv":true,"prazo_dias":0,"max_parcelas":1}'||jsonb_build_object('conta_padrao_id',(select id from public.financial_accounts where caixa_padrao)));
  perform public.finance_config('methods',credit,'{"nome":"Fixture comanda credit","tipo":"DEFERRED","ativo":true,"usar_pdv":true,"prazo_dias":30,"max_parcelas":1}');
  begin perform public.comanda_operation(cmd,'OPEN','{"identificacao":"Avulso"}');raise exception 'FAIL: open without cash';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
  data:=jsonb_build_object('conta_id',acc,'categoria_id',cat,'method_ids',jsonb_build_array(pix));
@@ -21,7 +22,7 @@ begin
  begin perform public.cash_operation(session,'CLOSE','{"contado":0,"esperado":0}');raise exception 'FAIL: cash closed with open comanda';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
  data:=jsonb_build_object('request_id',request,'total',80,'vencimento',(now() at time zone 'America/Bahia')::date+30,'payments',jsonb_build_array(jsonb_build_object('forma_id',pix,'valor',50),jsonb_build_object('forma_id',credit,'valor',30)));
  begin perform public.comanda_operation(cmd,'CLOSE',data);raise exception 'FAIL: unregistered deferred';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
- if exists(select 1 from public.financial_entries where conta_id=acc) then raise exception 'Partial failed settlement moved money';end if;
+ if (select coalesce(sum(valor),0) from public.financial_entries where conta_id=acc)<>baseline then raise exception 'Partial failed settlement moved money';end if;
  insert into public.customers(nome,limite) values('Fixture comanda customer',1000) returning codigo_cliente into customer;
  perform public.comanda_operation(cmd,'IDENTIFY',jsonb_build_object('identificacao','Fixture registered','customer_codigo',customer));
  update public.customers set limite=20 where codigo_cliente=customer;
@@ -32,7 +33,7 @@ begin
  begin perform public.comanda_operation(cmd,'CLOSE',data||'{"total":79}');raise exception 'FAIL: stale total';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
  begin perform public.comanda_operation(cmd,'CLOSE',jsonb_set(data,'{payments,0,valor}','49'));raise exception 'FAIL: mismatched split';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
  perform public.comanda_operation(cmd,'CLOSE',data);perform public.comanda_operation(cmd,'CLOSE',data);
- if (select sum(valor) from public.financial_entries where conta_id=acc)<>50 then raise exception 'Wrong immediate receipt or duplicate';end if;
+ if (select sum(valor) from public.financial_entries where conta_id=acc)-baseline<>50 then raise exception 'Wrong immediate receipt or duplicate';end if;
  if (select total_pendente from public.customers where codigo_cliente=customer)<>30 then raise exception 'Wrong deferred balance';end if;
  select id into debit from public.customer_ledger where comanda_id=cmd;
  if (select amount from public.customer_ledger where id=debit)<>30 then raise exception 'Wrong comanda debt';end if;

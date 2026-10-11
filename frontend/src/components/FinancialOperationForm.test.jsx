@@ -6,6 +6,13 @@ const api=vi.hoisted(()=>({get:vi.fn(),post:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
 const config={accounts:[{id:'cash',nome:'Caixa',ativo:true,saldo:100}],categories:[],methods:[{id:'pix',nome:'Pix',ativo:true,conta_padrao_id:'cash'}]};
 beforeEach(()=>{vi.clearAllMocks();api.get.mockResolvedValue({data:config});api.post.mockResolvedValue({data:{}});});
+it('prefills the editable initial bank for Pix and allows another account',async()=>{
+ api.get.mockResolvedValue({data:{...config,accounts:[...config.accounts,{id:'bank',nome:'Meu banco',banco_inicial:true,ativo:true,saldo:0}],methods:[{id:'pix',nome:'Pix',tipo:'PIX',ativo:true,conta_padrao_id:null}]}});
+ render(<FinancialOperationForm initialValues={{tipo:'RECEIPT',debitoId:'d',valor:'10',descricao:'Recebimento',paymentName:'Pix'}} onClose={vi.fn()} onSuccess={vi.fn()}/>);
+ await waitFor(()=>expect(screen.getByLabelText('Conta financeira')).toHaveValue('bank'));
+ fireEvent.change(screen.getByLabelText('Conta financeira'),{target:{value:'cash'}});fireEvent.click(screen.getByRole('button',{name:'Registrar movimentação'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/financeiro-movimentacoes',expect.objectContaining({contaId:'cash',formaId:'pix'})));
+});
 it('prefills the imported method/default account and permits a partial payment',async()=>{
  const success=vi.fn();render(<FinancialOperationForm initialValues={{tipo:'PAYMENT',parcelaId:'p',valor:'100',maxValue:100,descricao:'NF-e 1',paymentName:'Pix'}} onClose={vi.fn()} onSuccess={success}/>);
  await waitFor(()=>expect(screen.getByLabelText('Conta financeira')).toHaveValue('cash'));

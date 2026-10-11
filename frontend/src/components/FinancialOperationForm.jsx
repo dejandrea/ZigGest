@@ -2,7 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import api from '../services/api';
 import FormModal,{useFormClose} from './FormModal';
 import useOperation from '../hooks/useOperation';
-import {operationTypes,today,money} from '../services/finance';
+import {operationTypes,today,money,receivingAccount} from '../services/finance';
 export default function FinancialOperationForm({initialValues={},credits=[],onClose,onSuccess}){
  const [initial]=useState(()=>({tipo:'INCOME',valor:'',data:today(),descricao:'',contaId:'',destinoId:'',categoriaId:'',formaId:'',creditoId:'',motivo:'',...initialValues}));
  const [form,setForm]=useState(initial),[config,setConfig]=useState({accounts:[],methods:[],categories:[]}),[loading,setLoading]=useState(true),[loadError,setLoadError]=useState('');
@@ -10,10 +10,10 @@ export default function FinancialOperationForm({initialValues={},credits=[],onCl
  const dirty=JSON.stringify(form)!==JSON.stringify(initial),close=useFormClose(onClose,dirty,busy);
  const noCash=['ALLOCATION','REVERSAL'].includes(form.tipo),transfer=form.tipo==='TRANSFER';
  useEffect(()=>{let active=true;if(noCash){setLoading(false);return;}
-  api.get('/financeiro').then(({data})=>{if(active){setConfig(data);const method=data.methods.find(m=>m.ativo&&m.nome===initial.paymentName);if(method)setForm(prev=>({...prev,formaId:prev.formaId||method.id,contaId:prev.contaId||method.conta_padrao_id||''}));}}).catch(e=>{if(active)setLoadError(e.message);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};
+  api.get('/financeiro').then(({data})=>{if(active){setConfig(data);const method=data.methods.find(m=>m.ativo&&(m.id===initial.formaId||m.nome===initial.paymentName));if(method)setForm(prev=>({...prev,formaId:prev.formaId||method.id,contaId:prev.contaId||receivingAccount(method,data.accounts)}));}}).catch(e=>{if(active)setLoadError(e.message);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};
  },[noCash]);
  const change=(key,value)=>setForm(prev=>({...prev,[key]:value}));
- function methodChanged(id){const method=config.methods.find(m=>m.id===id);setForm(prev=>({...prev,formaId:id,contaId:method?.conta_padrao_id??prev.contaId}));}
+ function methodChanged(id){const method=config.methods.find(m=>m.id===id);setForm(prev=>({...prev,formaId:id,contaId:receivingAccount(method,config.accounts)||prev.contaId}));}
  async function save(event){event.preventDefault();try{const serialized=JSON.stringify(form);if(request.current.payload!==serialized)request.current={payload:serialized,id:crypto.randomUUID()};
   await run(()=>api.post('/financeiro-movimentacoes',{...form,requestId:request.current.id}));onSuccess('Movimentação financeira registrada com sucesso.');
  }catch{/* Repetição segura sem apagar o formulário. */}}

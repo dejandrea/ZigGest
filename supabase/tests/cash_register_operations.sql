@@ -4,7 +4,7 @@ update public.cash_sessions set status='CLOSED' where status='OPEN';
 do $$begin perform set_config('request.jwt.claim.sub',(select id::text from auth.users where lower(email)='dejandrea@gmail.com'),true);end $$;
 set local role authenticated;
 do $$
-declare acc uuid:=gen_random_uuid();bank uuid:=gen_random_uuid();cat uuid:=gen_random_uuid();cash uuid:=gen_random_uuid();pix uuid:=gen_random_uuid();credit uuid:=gen_random_uuid();
+declare baseline numeric; funded uuid; acc uuid:=gen_random_uuid();bank uuid:=gen_random_uuid();cat uuid:=gen_random_uuid();cash uuid:=gen_random_uuid();pix uuid:=gen_random_uuid();credit uuid:=gen_random_uuid();
  session uuid:=gen_random_uuid();session2 uuid:=gen_random_uuid();cmd uuid:=gen_random_uuid();cmd2 uuid:=gen_random_uuid();cmd3 uuid:=gen_random_uuid();cmd4 uuid:=gen_random_uuid();
  customer integer;tab public.dining_tables;data jsonb;opening jsonb;sale public.cash_sales;sale2 public.cash_sales;result jsonb;request uuid;debit uuid;receipt uuid;payment uuid;newcmd uuid;
 begin
@@ -12,10 +12,14 @@ begin
  perform public.finance_config('accounts',bank,jsonb_build_object('nome','Fixture cash bank','tipo','BANK','ativo',true,'saldo_inicial',200,'data',(now() at time zone 'America/Bahia')::date));
  perform public.finance_config('categories',cat,'{"nome":"Fixture full cash revenue","natureza":"INCOME","ativo":true}');
  perform public.finance_config('methods',cash,'{"nome":"Fixture cash method","tipo":"CASH","ativo":true,"usar_pdv":false,"prazo_dias":0,"max_parcelas":1}');
- perform public.finance_config('methods',pix,'{"nome":"Fixture full cash pix","tipo":"PIX","ativo":true,"usar_pdv":false,"prazo_dias":0,"max_parcelas":1}');
+ perform public.finance_config('methods',pix,'{"nome":"Fixture full cash pix","tipo":"PIX","ativo":true,"usar_pdv":false,"prazo_dias":0,"max_parcelas":1}'||jsonb_build_object('conta_padrao_id',(select id from public.financial_accounts where caixa_padrao)));
  perform public.finance_config('methods',credit,'{"nome":"Fixture full cash deferred","tipo":"DEFERRED","ativo":true,"usar_pdv":false,"prazo_dias":30,"max_parcelas":1}');
+ funded:=acc;
+ select id into acc from public.financial_accounts where caixa_padrao;
+ select coalesce(sum(valor),0) into baseline from public.financial_entries where conta_id=acc;
+ perform public.finance_operation(gen_random_uuid(),jsonb_build_object('tipo','TRANSFER','valor',100,'data',(now() at time zone 'America/Bahia')::date,'descricao','Fixture cash funding','conta_id',funded,'destino_id',acc));
  opening:=jsonb_build_object('conta_id',acc,'categoria_id',cat,'valor_abertura',100);
- begin perform public.cash_operation(session,'OPEN',opening||'{"valor_abertura":101}');raise exception 'FAIL: opening exceeds financial balance';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
+ begin perform public.cash_operation(session,'OPEN',opening||jsonb_build_object('valor_abertura',101+greatest(baseline,0)));raise exception 'FAIL: opening exceeds financial balance';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
  perform public.cash_operation(session,'OPEN',opening);perform public.cash_operation(session,'OPEN',opening);
  if not (select cash=any(method_ids) and pix=any(method_ids) and credit=any(method_ids) from public.cash_sessions where id=session) then raise exception 'Not all active methods enabled';end if;
  data:=jsonb_build_object('request_id',gen_random_uuid(),'valor',150,'conta_id',bank,'motivo','Retirada teste');
@@ -56,7 +60,7 @@ begin
  if (result->>'comanda_numero')::integer<>1 or newcmd is null then raise exception 'Reopened comanda number missing';end if;
  if (select total_geral from public.dining_tables where id=newcmd)<>50 or (select paid_total from public.dining_tables where id=newcmd)<>0 or (select status from public.dining_tables where id=newcmd)<>'aberta' then raise exception 'Reopened consumption wrong';end if;
  if (select total_pendente from public.customers where codigo_cliente=customer)<>0 then raise exception 'Debt not annulled on reopen';end if;
- if (select sum(valor) from public.financial_entries where conta_id=acc)<>95 then raise exception 'Reopen financial refund wrong';end if;
+ if (select sum(valor) from public.financial_entries where conta_id=acc)-baseline<>95 then raise exception 'Reopen financial refund wrong';end if;
  result:=public.cash_dashboard();
  if (select (v->>'expected_cash')::numeric from jsonb_array_elements(result) v where v->>'id'=session::text)<>85 then raise exception 'Reopen physical refund wrong';end if;
  begin perform public.cash_operation(session,'CLOSE','{"contado":85,"esperado":85}');raise exception 'FAIL: cash closed with reopened sale';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
