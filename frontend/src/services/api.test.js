@@ -11,7 +11,7 @@ it('routes invoice edits with the expected revision through one atomic RPC',asyn
 it('saves suppliers atomically with a stock item and sends purchase operations to their RPC',async()=>{
  mock.rpc.mockResolvedValue({data:{id:'item',nome:'Coca',unidade:'UN',saldo:0,fornecedores_ids:['s1','s2','s3']},error:null});
  const {data}=await api.post('/insumos',{nome:'Coca',unidade:'UN',fornecedoresIds:['s1','s2','s3'],saldo:500});
- expect(data.fornecedoresIds).toEqual(['s1','s2','s3']);expect(mock.rpc).toHaveBeenCalledWith('save_purchase_item',{p_codigo:null,p_data:{nome:'Coca',unidade:'UN'},p_suppliers:['s1','s2','s3']});
+ expect(data.fornecedoresIds).toEqual(['s1','s2','s3']);expect(mock.rpc).toHaveBeenCalledWith('save_purchase_item',{p_codigo:null,p_data:{nome:'COCA',unidade:'UN'},p_suppliers:['s1','s2','s3']});
  await api.post('/compras',{id:'quote',action:'DECIDE',revision:3,data:{strategy:'TOTAL',request_id:'retry'}});
  expect(mock.rpc).toHaveBeenCalledWith('purchase_operation',{p_id:'quote',p_action:'DECIDE',p_revision:3,p_data:{strategy:'TOTAL',request_id:'retry'}});
 });
@@ -103,7 +103,7 @@ it('saves a product and its stock consumption in one RPC with an allowlist',asyn
  const item='11111111-1111-1111-1111-111111111111';
  mock.rpc.mockResolvedValue({data:{id:'p1',codigo_produto:1,nome:'Pack',custo:0,preco_venda:48,componentes:[{stock_item_id:item,quantidade:12}]},error:null});
  await api.post('/produtos',{nome:'Pack',precoVenda:48,componentes:[{stock_item_id:item,quantidade:'12'}],saldo:999});
- expect(mock.rpc).toHaveBeenCalledWith('save_product_with_stock',{p_codigo:null,p_dados:{nome:'Pack',preco_venda:48},p_componentes:[{stock_item_id:item,quantidade:12}]});
+ expect(mock.rpc).toHaveBeenCalledWith('save_product_with_stock',{p_codigo:null,p_dados:{nome:'PACK',preco_venda:48},p_componentes:[{stock_item_id:item,quantidade:12}]});
  expect(mock.from).not.toHaveBeenCalled();
 });
 it('blocks duplicate or zero recipe quantities before sending a query',async()=>{
@@ -119,7 +119,7 @@ it('routes inventory conversion through the guarded RPC and ignores a client bal
 it('allows stock item metadata edits but never balance or base unit changes',async()=>{
  mock.responses=[{data:{id:'i1',codigo_insumo:1,nome:'Coca',unidade:'UN',saldo:144,estoque_minimo:0,ativo:true},error:null}];
  await api.put('/insumos/1',{nome:'Coca',saldo:999,unidade:'KG',estoqueMinimo:12});
- expect(mock.queries[0].calls).toContainEqual(['update',{nome:'Coca',estoque_minimo:12}]);
+ expect(mock.queries[0].calls).toContainEqual(['update',{nome:'COCA',estoque_minimo:12}]);
 });
 describe('Supabase CRUD adapter',()=>{
   it('imports invoice conversions in one RPC without trusting invoice metadata from the client',async()=>{
@@ -187,7 +187,7 @@ it('supplier updates allow editable fields only and preserve the business code',
 it('stores an optional barcode as null and never converts leading zeroes to a number',async()=>{
  mock.responses=[{data:{codigo_produto:1,nome:'Avulso',custo:0,preco_venda:0,ativo:true},error:null}];
  await api.post('/produtos',{nome:'Avulso',codigoBarras:'   ',custo:'0',precoVenda:'0',unidade:'UN'});
- expect(mock.queries[0].calls).toContainEqual(['insert',{nome:'Avulso',codigo_barras:null,custo:0,preco_venda:0,unidade:'UN'}]);
+ expect(mock.queries[0].calls).toContainEqual(['insert',{nome:'AVULSO',codigo_barras:null,custo:0,preco_venda:0,unidade:'UN'}]);
  mock.responses=[{data:{codigo_produto:1,nome:'Avulso',codigo_barras:'001234',custo:0,preco_venda:1,ativo:true},error:null}];
  const response=await api.put('/produtos/1',{codigoBarras:' 001234 ',precoVenda:'1,25',codigoProduto:9,id:'injected',estoque:100,created_at:'injected'});
  expect(mock.queries[1].calls).toContainEqual(['update',{codigo_barras:'001234',preco_venda:1.25}]);

@@ -1,3 +1,5 @@
+import ContactInput from './ContactInput';
+import SaveAndContinue,{continuesRegistration,focusRegistration} from './SaveAndContinue';
 import React, { useState } from 'react';
 import useOperation from '../hooks/useOperation';
 import api from '../services/api';
@@ -27,7 +29,7 @@ const ModalNovoCliente = ({ onClose, onSuccess, initialName='' }) => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault();const keepOpen=continuesRegistration(e),target=e.currentTarget;
   
     const cliente = {
       ...form,
@@ -37,8 +39,9 @@ const ModalNovoCliente = ({ onClose, onSuccess, initialName='' }) => {
   
     try {
       const {data}=await run(() => api.post('/clientes', cliente));
-      onSuccess?.(data);
-      onClose();
+      if(keepOpen){setForm({nome:'',apelido:'',telefone:'',email:'',endereco:'',status:'liberado',limite:100,observacoes:''});focusRegistration({currentTarget:target});}
+      onSuccess?.(data,keepOpen);
+      if(!keepOpen)onClose();
     } catch (error) {
       console.error('Erro ao cadastrar cliente:', error);
     }
@@ -52,7 +55,7 @@ const ModalNovoCliente = ({ onClose, onSuccess, initialName='' }) => {
         <form onSubmit={handleSubmit}><fieldset disabled={busy} className="legacy-modal-fields">
           <label>Nome<input name="nome" aria-label="Nome" placeholder="Nome" value={form.nome} onChange={handleChange} required autoFocus /></label>
           <label>Apelido<input name="apelido" aria-label="Apelido" placeholder="Apelido" value={form.apelido} onChange={handleChange} /></label>
-          <label>Telefone<input name="telefone" aria-label="Telefone" placeholder="Telefone" value={form.telefone} onChange={handleChange} /></label>
+          <label>Telefone<ContactInput kind="phone" name="telefone" aria-label="Telefone" placeholder="Telefone" value={form.telefone} onChange={handleChange} /></label>
           <label>E-mail<input type="email" name="email" aria-label="E-mail" placeholder="Email" value={form.email} onChange={handleChange} /></label>
           <label>Endereço<input name="endereco" aria-label="Endereco" placeholder="Endereço" value={form.endereco} onChange={handleChange} /></label>
           <label>Status financeiro<select name="status" aria-label="Status financeiro" value={form.status} onChange={handleChange}>
@@ -62,7 +65,7 @@ const ModalNovoCliente = ({ onClose, onSuccess, initialName='' }) => {
           <label>Limite<input type="number" min="0" step="0.01" name="limite" aria-label="Limite" placeholder="Limite" value={form.limite} onChange={handleChange} /></label>
           <label>Observações<textarea name="observacoes" aria-label="Observacoes" placeholder="Observações" value={form.observacoes} onChange={handleChange} /></label>
           <div className="modal-buttons">
-            <Botao tipo='submit' disabled={busy} tamanho='xxsm' cor='terciario'>Salvar</Botao>
+            <Botao tipo='submit' disabled={busy} tamanho='xxsm' cor='terciario'>Salvar</Botao><SaveAndContinue disabled={busy}/>
             <Botao tamanho='xxsm' cor='terciario'onClick={requestClose}>Cancelar</Botao>
           </div>
         </fieldset></form>

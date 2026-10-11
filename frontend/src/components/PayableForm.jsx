@@ -1,3 +1,4 @@
+import ContactInput from './ContactInput';
 import React,{useEffect,useRef,useState} from 'react';
 import api from '../services/api';
 import {cents,installmentPlan,paymentMethods} from '../services/payables';
@@ -32,7 +33,7 @@ export default function PayableForm({initialValues={},suppliers=[],onClose,onSuc
    <label className="product-wide">Fornecedor cadastrado<select value={form.fornecedorId} onChange={e=>supplierChanged(e.target.value)}><option value="">Informar os dados abaixo</option>{available.map(s=><option key={s._id} value={s._id}>{s.nome}{s.ativo?'':' (inativo)'}</option>)}</select></label>
    <button type="button" className="users-secondary product-wide" onClick={()=>setNewSupplier(true)}>Novo fornecedor</button>
    <label>Fornecedor<input required maxLength={200} value={form.fornecedorNome} onChange={e=>{change('fornecedorNome',e.target.value);change('fornecedorId','');}}/></label>
-   <label>CPF / CNPJ<input maxLength={30} value={form.fornecedorDocumento} onChange={e=>{change('fornecedorDocumento',e.target.value);change('fornecedorId','');}}/></label>
+   <label>CPF / CNPJ<ContactInput maxLength={30} value={form.fornecedorDocumento} onChange={e=>{change('fornecedorDocumento',e.target.value);change('fornecedorId','');}}/></label>
    <label className="product-wide">Descrição<input required maxLength={200} value={form.descricao} onChange={e=>change('descricao',e.target.value)}/></label>
    {categoryError&&<p className="product-wide" role="status">{categoryError}</p>}
    <label className="product-wide">Categoria de despesa (opcional)<select value={form.categoriaId??''} onChange={e=>change('categoriaId',e.target.value)}><option value="">Sem categoria</option>{categories.filter(c=>c.ativo&&['EXPENSE','BOTH'].includes(c.natureza)).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></label>
@@ -51,5 +52,5 @@ export default function PayableForm({initialValues={},suppliers=[],onClose,onSuc
    <label className="product-wide">Observações<textarea maxLength={2000} value={form.observacoes} onChange={e=>change('observacoes',e.target.value)}/></label>
    <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button type="submit" className="users-primary">{busy?'Salvando…':'Salvar conta a pagar'}</button></div>
   </fieldset></form>
- </div></FormModal>{newSupplier&&<SupplierForm initialValues={{nome:form.fornecedorNome,documento:form.fornecedorDocumento}} onClose={()=>setNewSupplier(false)} onSuccess={(_message,supplier)=>{setCreated(prev=>[...prev,supplier]);setForm(prev=>({...prev,fornecedorId:supplier._id,fornecedorNome:supplier.nome,fornecedorDocumento:supplier.documento}));setNewSupplier(false);}}/>}</>;
+ </div></FormModal>{newSupplier&&<SupplierForm initialValues={{nome:form.fornecedorNome,documento:form.fornecedorDocumento}} onClose={()=>setNewSupplier(false)} onSuccess={(_message,supplier,keepOpen)=>{setCreated(prev=>[...prev,supplier]);setForm(prev=>({...prev,fornecedorId:supplier._id,fornecedorNome:supplier.nome,fornecedorDocumento:supplier.documento}));if(!keepOpen)setNewSupplier(false);}}/>}</>;
 }

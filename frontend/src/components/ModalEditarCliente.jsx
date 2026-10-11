@@ -1,3 +1,4 @@
+import ContactInput from './ContactInput';
 import React, { useState, useEffect } from 'react';
 import useOperation from '../hooks/useOperation';
 import api from '../services/api';
@@ -55,7 +56,7 @@ const ModalEditarCliente = ({ cliente, onClose, onSuccess }) => {
                 <form onSubmit={handleSubmit}><fieldset disabled={busy} className="legacy-modal-fields">
                     <label>Nome<input name="nome" aria-label="Nome" value={form.nome} onChange={handleChange} required /></label>
                     <label>Apelido<input name="apelido" aria-label="Apelido" value={form.apelido} onChange={handleChange} /></label>
-                    <label>Telefone<input name="telefone" aria-label="Telefone" value={form.telefone} onChange={handleChange} /></label>
+                    <label>Telefone<ContactInput kind="phone" name="telefone" aria-label="Telefone" value={form.telefone} onChange={handleChange} /></label>
                     <label>E-mail<input type="email" name="email" aria-label="E-mail" value={form.email} onChange={handleChange} /></label>
                     <label>Endereço<input name="endereco" aria-label="Endereco" value={form.endereco} onChange={handleChange} /></label>
                     <label>Status financeiro<select name="status" aria-label="Status financeiro" value={form.status} onChange={handleChange}>

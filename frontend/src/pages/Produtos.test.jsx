@@ -6,6 +6,19 @@ const api=vi.hoisted(()=>({get:vi.fn(),post:vi.fn(),put:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
 const rows=[{codigoProduto:1,nome:'Arroz',codigoBarras:'0012345678905',categoria:'Alimentos',unidade:'KG',custo:5,precoVenda:8,ativo:true},{codigoProduto:2,nome:'Café',codigoBarras:'',categoria:'Bebidas',unidade:'UN',custo:10,precoVenda:15,ativo:false}];
 beforeEach(()=>{vi.clearAllMocks();api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:rows}));api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
+it('keeps the dialog open for consecutive registrations and closes on ordinary save',async()=>{
+ render(<Produtos/>);await screen.findByText('Arroz');
+ fireEvent.click(screen.getByRole('button',{name:/Novo produto/}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar e continuar'})).toBeEnabled());
+ fireEvent.change(screen.getByLabelText('Nome do produto'),{target:{value:'Primeiro'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar e continuar'}));
+ await waitFor(()=>expect(screen.getByLabelText('Nome do produto')).toHaveValue(''));
+ expect(screen.getByRole('dialog')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Nome do produto'),{target:{value:'Segundo'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
+ await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+ expect(api.post).toHaveBeenCalledTimes(2);
+});
 it('ordena os recentes e filtra por código de barras ou situação',async()=>{
  render(<Produtos/>);await screen.findByText('Arroz');
  expect(screen.getAllByRole('row')[1]).toHaveTextContent('Café');

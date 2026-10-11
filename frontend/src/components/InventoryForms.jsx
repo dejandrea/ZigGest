@@ -1,3 +1,4 @@
+import SaveAndContinue,{continuesRegistration,focusRegistration} from './SaveAndContinue';
 import React,{useEffect,useRef,useState} from 'react';
 import api from '../services/api';
 import {productUnits} from '../services/dataMapping';
@@ -6,13 +7,13 @@ import useOperation from '../hooks/useOperation';
 import SupplierForm from './SupplierForm';
 
 export function StockItemForm({item,initialValues={},onClose,onSuccess}){
- const [initial]=useState(()=>({nome:item?.nome??initialValues.nome??'',unidade:item?.unidade??initialValues.unidade??'UN',estoqueMinimo:item?.estoqueMinimo??'',bloquearEstoqueNegativo:item?.bloquearEstoqueNegativo??false,observacoes:item?.observacoes??'',ativo:item?.ativo??true,fornecedoresIds:item?.fornecedoresIds??[]}));
+ const [initial,setInitial]=useState(()=>({nome:item?.nome??initialValues.nome??'',unidade:item?.unidade??initialValues.unidade??'UN',estoqueMinimo:item?.estoqueMinimo??'',bloquearEstoqueNegativo:item?.bloquearEstoqueNegativo??false,observacoes:item?.observacoes??'',ativo:item?.ativo??true,fornecedoresIds:item?.fornecedoresIds??[]}));
  const [suppliers,setSuppliers]=useState([]),[supplierSlots,setSupplierSlots]=useState(Math.max(3,initial.fornecedoresIds.length)),[supplierLoading,setSupplierLoading]=useState(true),[supplierError,setSupplierError]=useState('');
  useEffect(()=>{let active=true;api.get('/fornecedores').then(({data})=>{if(active)setSuppliers(data);}).catch(()=>{if(active)setSupplierError('Não foi possível carregar os fornecedores. Os vínculos atuais serão preservados.');}).finally(()=>{if(active)setSupplierLoading(false);});return()=>{active=false;};},[]);
  const [form,setForm]=useState(initial),{busy,error,run}=useOperation();
  const dirty=JSON.stringify(form)!==JSON.stringify(initial),close=useFormClose(onClose,dirty,busy);
  const change=(key,value)=>setForm(prev=>({...prev,[key]:value}));
- async function save(e){e.preventDefault();try{const body={...form,fornecedoresIds:form.fornecedoresIds.filter(Boolean)};const {data}=await run(()=>item?api.put('/insumos/'+item.codigoInsumo,body):api.post('/insumos',body));onSuccess('Item de estoque salvo com sucesso.',data);}catch{/* Preserva formulário. */}}
+ async function save(e){e.preventDefault();const keepOpen=continuesRegistration(e),target=e.currentTarget;try{const body={...form,fornecedoresIds:form.fornecedoresIds.filter(Boolean)};const {data}=await run(()=>item?api.put('/insumos/'+item.codigoInsumo,body):api.post('/insumos',body));if(keepOpen){const next={nome:'',unidade:'UN',estoqueMinimo:'',bloquearEstoqueNegativo:false,observacoes:'',ativo:true,fornecedoresIds:[]};setForm(next);setInitial(next);setSupplierSlots(3);focusRegistration({currentTarget:target});}onSuccess('Item de estoque salvo com sucesso.',data,keepOpen);}catch{/* Preserva formulário. */}}
  return <FormModal labelledBy="stock-title" dirty={dirty} busy={busy} onClose={close}><div className="users-editor product-editor">
   <div className="users-editor-heading"><h2 id="stock-title">{item?'Editar item de estoque':'Novo item de estoque'}</h2><button type="button" aria-label="Fechar formulário" onClick={close} disabled={busy}>×</button></div>
   <p className="users-editor-intro">Use a menor unidade controlada. Para Coca-Cola lata, escolha UN. O saldo começa em zero e é alterado por movimentações.</p>
@@ -28,7 +29,7 @@ export function StockItemForm({item,initialValues={},onClose,onSuccess}){
    {item&&<small className="product-wide">A unidade fica fixa para preservar o significado do saldo e dos vínculos.</small>}
    <label className="product-wide">Observações<textarea rows={3} maxLength={2000} value={form.observacoes} onChange={e=>change('observacoes',e.target.value)}/></label>
    <label className="product-wide">Situação<select value={String(form.ativo)} onChange={e=>change('ativo',e.target.value==='true')}><option value="true">Ativo</option><option value="false">Inativo</option></select></label>
-   <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button className="users-primary" type="submit">{busy?'Salvando…':'Salvar item'}</button></div>
+   <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button className="users-primary" type="submit">{busy?'Salvando…':'Salvar item'}</button><SaveAndContinue editing={!!item}/></div>
   </fieldset></form>
  </div></FormModal>;
 }
@@ -43,7 +44,7 @@ export function StockMovementForm({items,products=[],initialItem=null,onClose,on
  const [suppliers,setSuppliers]=useState([]);
  useEffect(()=>{let active=true;api.get('/fornecedores').then(({data})=>{if(active)setSuppliers(data);}).catch(()=>{if(active)setSupplierNotice('Não foi possível carregar os fornecedores. Você poderá informar o fornecedor no financeiro.');});return()=>{active=false;};},[]);
  const availableItems=[...items.filter(i=>!createdItems.some(c=>c._id===i._id)),...createdItems];
- function itemCreated(_message,item){setCreatedItems(prev=>[...prev,item]);if(item.ativo)change('itemId',item._id);setCreatingItem(false);}
+ function itemCreated(_message,item,keepOpen){setCreatedItems(prev=>[...prev,item]);if(item.ativo)change('itemId',item._id);if(!keepOpen)setCreatingItem(false);}
  const item=availableItems.find(s=>s._id===form.itemId),preview=Number(form.quantidade)*Number(form.fator);
  async function save(e){
   e.preventDefault();const payload={...form,itemId:form.tipo==='ENTRADA'?form.itemId:'',codigoProduto:form.tipo==='SAIDA'?form.codigoProduto:'',fator:form.tipo==='SAIDA'?'1':form.fator,dataEntrada:form.tipo==='ENTRADA'?form.dataEntrada:''};
@@ -67,6 +68,6 @@ export function StockMovementForm({items,products=[],initialItem=null,onClose,on
   </fieldset></form>
  </div></FormModal>
  {creatingItem&&<StockItemForm onClose={()=>setCreatingItem(false)} onSuccess={itemCreated}/>}
- {creatingSupplier&&<SupplierForm onClose={()=>setCreatingSupplier(false)} onSuccess={(_message,supplier)=>{setSuppliers(prev=>[...prev,supplier]);change('fornecedorId',supplier.ativo?supplier._id:'');setCreatingSupplier(false);setSupplierNotice('Fornecedor cadastrado: '+supplier.nome);}}/>}
+ {creatingSupplier&&<SupplierForm onClose={()=>setCreatingSupplier(false)} onSuccess={(_message,supplier,keepOpen)=>{setSuppliers(prev=>[...prev,supplier]);change('fornecedorId',supplier.ativo?supplier._id:'');if(!keepOpen)setCreatingSupplier(false);setSupplierNotice('Fornecedor cadastrado: '+supplier.nome);}}/>}
  </>;
 }

@@ -8,6 +8,16 @@ const api=vi.hoisted(()=>({get:vi.fn(),post:vi.fn(),put:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
 const rows=[{_id:'i1',codigoInsumo:1,nome:'Coca-Cola lata',unidade:'UN',saldo:144,estoqueMinimo:12,ativo:true},{_id:'i2',codigoInsumo:2,nome:'Pão',unidade:'UN',saldo:0,estoqueMinimo:5,ativo:true}];
 beforeEach(()=>{vi.clearAllMocks();api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:rows}));api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
+it('clears the insumo for a new registration while keeping the form open',async()=>{
+ open();await screen.findByText('Coca-Cola lata');
+ fireEvent.click(screen.getByRole('button',{name:/Novo item/}));
+ fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Novo insumo'}});
+ fireEvent.change(screen.getByLabelText('Estoque mínimo (opcional)'),{target:{value:'10'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar e continuar'}));
+ await waitFor(()=>expect(screen.getByLabelText('Nome do item')).toHaveValue(''));
+ expect(screen.getByLabelText('Estoque mínimo (opcional)')).toHaveValue(null);
+ expect(screen.getByRole('dialog')).toBeInTheDocument();
+});
 it('saves three supplier links together with the insumo without touching its balance',async()=>{
  const vendors=[{_id:'s1',nome:'Fornecedor um',ativo:true},{_id:'s2',nome:'Fornecedor dois',ativo:true},{_id:'s3',nome:'Fornecedor três',ativo:true}];
  api.get.mockImplementation(path=>Promise.resolve({data:path==='/fornecedores'?vendors:path==='/estoques'?{locations:[],balances:[]}:rows}));

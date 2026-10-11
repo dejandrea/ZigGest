@@ -6,6 +6,19 @@ const mock=vi.hoisted(()=>({lookup:vi.fn(),post:vi.fn()}));
 vi.mock('../services/supplierLookup',async importOriginal=>({...await importOriginal(),lookupSupplier:mock.lookup}));
 vi.mock('../services/api',()=>({default:{post:mock.post}}));
 beforeEach(()=>{vi.clearAllMocks();mock.post.mockResolvedValue({data:{}});});
+it('saves IE and clears the next registration only after success',async()=>{
+ const saved=vi.fn();mock.post.mockRejectedValueOnce(new Error('Falha ao salvar'));
+ render(<SupplierForm initialValues={{nome:'Fornecedor da nota',inscricaoEstadual:'001234'}} onClose={vi.fn()} onSuccess={saved}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Salvar e continuar'}));
+ await screen.findByRole('alert');
+ expect(screen.getByLabelText('Inscrição estadual (IE)')).toHaveValue('001234');
+ expect(saved).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Salvar e continuar'}));
+ await waitFor(()=>expect(saved).toHaveBeenCalledWith(expect.any(String),{},true));
+ expect(mock.post).toHaveBeenLastCalledWith('/fornecedores',expect.objectContaining({inscricaoEstadual:'001234'}));
+ expect(screen.getByLabelText('Nome / razão social')).toHaveValue('');
+ expect(screen.getByLabelText('Inscrição estadual (IE)')).toHaveValue('');
+});
 it('automatically fills blank fields on leaving CNPJ, preserving existing invoice or manual data',async()=>{
  let resolve;mock.lookup.mockImplementation(()=>new Promise(r=>resolve=r));
  render(<SupplierForm initialValues={{nome:'Nome da NF-e'}} onClose={vi.fn()} onSuccess={vi.fn()}/>);
@@ -15,7 +28,7 @@ it('automatically fills blank fields on leaving CNPJ, preserving existing invoic
  resolve({nome:'Nome consultado',nomeFantasia:'Marca',telefone:'1199999999',endereco:'Endereço consultado'});
  await waitFor(()=>expect(screen.getByLabelText('Nome fantasia')).toHaveValue('Marca'));
  expect(screen.getByLabelText('Nome / razão social')).toHaveValue('Nome da NF-e');
- expect(screen.getByLabelText('Telefone')).toHaveValue('7133331111');
+ expect(screen.getByLabelText('Telefone')).toHaveValue('(71) 3333-1111');
 });
 it('allows saving manually after an unsuccessful lookup',async()=>{
  mock.lookup.mockRejectedValue(new Error('Não foi possível consultar. Preencha manualmente.'));

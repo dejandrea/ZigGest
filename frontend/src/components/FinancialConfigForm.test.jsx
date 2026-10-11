@@ -31,6 +31,18 @@ it('retains the same account id when retrying opening balance creation',async()=
  expect(api.post.mock.calls[0][1].id).toBe(api.post.mock.calls[1][1].id);
  expect(api.post.mock.calls[1][1]).toMatchObject({nome:'Caixa loja',saldo_inicial:100});
 });
+it('generates a new account id after saving and continuing, preserving retry identity',async()=>{
+ const saved=vi.fn();
+ render(<FinancialConfigForm kind="accounts" onClose={vi.fn()} onSuccess={saved}/>);
+ fireEvent.change(screen.getByLabelText('Nome'),{target:{value:'Primeira conta'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar e continuar'}));
+ await waitFor(()=>expect(screen.getByLabelText('Nome')).toHaveValue(''));
+ expect(saved).toHaveBeenCalledWith('Configuração financeira salva.',true);
+ fireEvent.change(screen.getByLabelText('Nome'),{target:{value:'Segunda conta'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar configuração'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledTimes(2));
+ expect(api.post.mock.calls[0][1].id).not.toBe(api.post.mock.calls[1][1].id);
+});
 it('edits payment method settings for the future PDV',async()=>{
  render(<FinancialConfigForm kind="methods" accounts={[{id:'bank',nome:'Banco',ativo:true}]} onClose={vi.fn()} onSuccess={vi.fn()}/>);
  fireEvent.change(screen.getByLabelText('Nome'),{target:{value:'Crédito Visa'}});

@@ -1,3 +1,4 @@
+import ContactInput from './ContactInput';
 import React,{useRef,useState} from 'react';
 import InvoiceTotals from './InvoiceTotals';
 import {invoiceTotals} from '../services/invoiceTotals';
@@ -35,10 +36,10 @@ export default function ManualInvoiceEntryForm({items,onClose,onXml,onItemCreate
     {[['number','Número da nota'],['series','Série'],['issuedAt','Data de emissão']].map(([field,label])=><label key={field} className={field==='issuedAt'?'invoice-span-2':''}>{label}<input readOnly={initialInvoice?.origem==='XML'} required type={field==='issuedAt'?'datetime-local':'text'} maxLength={field==='number'?9:field==='series'?3:undefined} value={header[field]} onChange={e=>changeHeader(field,e.target.value)}/></label>)}
    </div></section>
    <section className="product-wide invoice-section"><div className="invoice-section-heading"><h3>Fornecedor / emitente</h3><button type="button" className="users-secondary" onClick={()=>setNewSupplier(true)}>Novo fornecedor</button></div><div className="invoice-party-grid">
-    {[['issuerDocument','CPF / CNPJ do fornecedor'],['issuerName','Nome / razão social do fornecedor']].map(([field,label])=><label key={field}>{label}<input readOnly={initialInvoice?.origem==='XML'} required maxLength={field==='issuerName'?200:18} value={header[field]} onChange={e=>changeHeader(field,e.target.value)}/></label>)}
+    {[['issuerDocument','CPF / CNPJ do fornecedor'],['issuerName','Nome / razão social do fornecedor']].map(([field,label])=><label key={field}>{label}{field==='issuerDocument'?<ContactInput readOnly={initialInvoice?.origem==='XML'} required maxLength={field==='issuerName'?200:18} value={header[field]} onChange={e=>changeHeader(field,e.target.value)}/>:<input readOnly={initialInvoice?.origem==='XML'} required maxLength={field==='issuerName'?200:18} value={header[field]} onChange={e=>changeHeader(field,e.target.value)}/>}</label>)}
    </div></section>
    <section className="product-wide invoice-section"><h3>Destinatário</h3><div className="invoice-party-grid">
-    {[['recipientDocument','CPF / CNPJ do destinatário (opcional)'],['recipientName','Destinatário (opcional)']].map(([field,label])=><label key={field}>{label}<input readOnly={initialInvoice?.origem==='XML'} maxLength={field==='recipientName'?200:18} value={header[field]} onChange={e=>changeHeader(field,e.target.value)}/></label>)}
+    {[['recipientDocument','CPF / CNPJ do destinatário (opcional)'],['recipientName','Destinatário (opcional)']].map(([field,label])=><label key={field}>{label}{field==='recipientDocument'?<ContactInput readOnly={initialInvoice?.origem==='XML'} maxLength={field==='recipientName'?200:18} value={header[field]} onChange={e=>changeHeader(field,e.target.value)}/>:<input readOnly={initialInvoice?.origem==='XML'} maxLength={field==='recipientName'?200:18} value={header[field]} onChange={e=>changeHeader(field,e.target.value)}/>}</label>)}
    </div></section>
    <div className="product-wide invoice-section-heading"><h3>Produtos / insumos</h3><button type="button" className="users-secondary" disabled={lines.length>=990} onClick={()=>setLines(prev=>[...prev,blank(nextId.current++)])}>Adicionar item</button></div>
    <div className="product-wide invoice-items">{lines.map((line,index)=>{
@@ -54,7 +55,7 @@ export default function ManualInvoiceEntryForm({items,onClose,onXml,onItemCreate
    <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button type="submit" className="users-primary">{busy?'Salvando\u2026':initialInvoice?'Salvar altera\u00e7\u00f5es':'Registrar nota manual'}</button></div>
   </fieldset></form>
  </div></FormModal>
- {selected&&<StockItemForm initialValues={{nome:selected.name}} onClose={()=>setNewItemId(null)} onSuccess={(_message,item)=>{setCreatedItems(prev=>[...prev,item]);onItemCreated(item);if(item.ativo)change(newItemId,'stockItemId',item._id);setNewItemId(null);}}/>}
- {newSupplier&&<SupplierForm initialValues={{nome:header.issuerName,documento:header.issuerDocument}} onClose={()=>setNewSupplier(false)} onSuccess={(_message,supplier)=>{setHeader(h=>({...h,issuerName:supplier.nome,issuerDocument:supplier.documento}));setNewSupplier(false);}}/>}
+ {selected&&<StockItemForm initialValues={{nome:selected.name}} onClose={()=>setNewItemId(null)} onSuccess={(_message,item,keepOpen)=>{setCreatedItems(prev=>[...prev,item]);onItemCreated(item);if(item.ativo)change(newItemId,'stockItemId',item._id);if(!keepOpen)setNewItemId(null);}}/>}
+ {newSupplier&&<SupplierForm initialValues={{nome:header.issuerName,documento:header.issuerDocument}} onClose={()=>setNewSupplier(false)} onSuccess={(_message,supplier,keepOpen)=>{setHeader(h=>({...h,issuerName:supplier.nome,issuerDocument:supplier.documento}));if(!keepOpen)setNewSupplier(false);}}/>}
  </>;
 }

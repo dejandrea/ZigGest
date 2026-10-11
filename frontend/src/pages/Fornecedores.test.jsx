@@ -5,6 +5,16 @@ import Fornecedores from './Fornecedores';
 const api=vi.hoisted(()=>({get:vi.fn(),post:vi.fn(),put:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
 const rows=[{codigoFornecedor:1,nome:'Alpha',nomeFantasia:'Parceiro',ativo:true,documento:'AB123'},{codigoFornecedor:2,nome:'Beta',ativo:false}];
+it('formats existing documents and phones and searches either formatted or plain documents',async()=>{
+ api.get.mockResolvedValue({data:[{codigoFornecedor:27,nome:'NORSA',documento:'07196033002303',telefone:'7133334444',ativo:true}]});
+ render(<Fornecedores/>);
+ expect(await screen.findByText('07.196.033/0023-03')).toBeInTheDocument();
+ expect(screen.getByText('(71) 3333-4444')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Buscar fornecedores'),{target:{value:'07.196.033/0023-03'}});
+ expect(screen.getByText('NORSA')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Buscar fornecedores'),{target:{value:'07196033002303'}});
+ expect(screen.getByText('NORSA')).toBeInTheDocument();
+});
 beforeEach(()=>{vi.clearAllMocks();api.get.mockResolvedValue({data:rows});api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
 it('ordena os recentes primeiro e busca por documento ou filtra inativos',async()=>{
  render(<Fornecedores/>);await screen.findByRole('button',{name:'Editar fornecedor Beta'});

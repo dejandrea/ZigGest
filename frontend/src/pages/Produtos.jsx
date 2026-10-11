@@ -1,3 +1,4 @@
+import SaveAndContinue,{continuesRegistration,focusRegistration} from '../components/SaveAndContinue';
 import React,{useEffect,useMemo,useState} from 'react';
 import api from '../services/api';
 import useStocks from '../hooks/useStocks';
@@ -20,10 +21,11 @@ function ProductForm({product,onClose,onSuccess}){
  const close=useFormClose(onClose,dirty,busy);
  const change=(key,value)=>setForm(prev=>({...prev,[key]:value}));
  async function save(e){
-  e.preventDefault();
+  e.preventDefault();const keepOpen=continuesRegistration(e),target=e.currentTarget;
   try{
    await run(()=>product?api.put('/produtos/'+product.codigoProduto,form):api.post('/produtos',form));
-   onSuccess(product?'Produto atualizado com sucesso.':'Produto cadastrado com sucesso.');
+   if(keepOpen){setForm({...empty,componentes:[]});focusRegistration({currentTarget:target});}
+   onSuccess(product?'Produto atualizado com sucesso.':'Produto cadastrado com sucesso.',null,keepOpen);
   }catch{/* Mantém os dados e exibe a mensagem da operação. */}
  }
  return <FormModal labelledBy="product-title" onClose={close} dirty={dirty} busy={busy}>
@@ -54,7 +56,7 @@ function ProductForm({product,onClose,onSuccess}){
     </section>
     <label className="product-wide">Observações<textarea value={form.observacoes} onChange={e=>change('observacoes',e.target.value)} maxLength={2000} rows={3}/></label>
     <label className="product-wide">Situação<select value={String(form.ativo)} onChange={e=>change('ativo',e.target.value==='true')}><option value="true">Ativo</option><option value="false">Inativo</option></select></label>
-    <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button type="submit" className="users-primary">{busy?'Salvando…':'Salvar produto'}</button></div>
+    <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button type="submit" className="users-primary">{busy?'Salvando…':'Salvar produto'}</button><SaveAndContinue editing={!!product}/></div>
    </fieldset></form>
    {stocks.error&&<p role="alert" className="users-message users-error">{stocks.error}</p>}
    {stockError&&<p role="alert" className="users-message users-error">{stockError}</p>}
@@ -88,6 +90,6 @@ export default function Produtos(){
    </tbody></table></div><footer className="users-list-footer"><span>{loaded&&!loading?filtered.length+' de '+rows.length+' produtos':'Consulta de produtos'}</span><span>Produtos e preços</span></footer>
   </section>
   <p className="product-note">Produtos podem compartilhar o mesmo insumo. Configure o consumo por venda na edição; o saldo é mantido nos itens de estoque.</p>
-  {editing&&<ProductForm product={editing.codigoProduto?editing:null} onClose={()=>setEditing(null)} onSuccess={message=>{setEditing(null);setNotice(message);load();}}/>}
+  {editing&&<ProductForm product={editing.codigoProduto?editing:null} onClose={()=>setEditing(null)} onSuccess={(message,_data,keepOpen)=>{if(!keepOpen)setEditing(null);setNotice(message);load();}}/>}
  </div>;
 }

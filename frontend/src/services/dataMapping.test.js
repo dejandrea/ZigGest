@@ -1,7 +1,19 @@
 import {describe,expect,it} from 'vitest';
-import {customerToRow,ledgerToRow,ledgerFromRow} from './dataMapping';
+import {customerToRow,ledgerToRow,ledgerFromRow,supplierToRow,supplierFromRow,productToRow,stockToRow} from './dataMapping';
 import {isPublicSupabaseKey} from './publicConfiguration';
 describe('Supabase mapping',()=>{
+  it('uppercases product and stock descriptions on save while preserving other fields',()=>{
+    expect(productToRow({nome:' Café com pão ',categoria:'Bebidas',observacoes:'Sem açúcar'})).toEqual({nome:'CAFÉ COM PÃO',categoria:'Bebidas',observacoes:'Sem açúcar'});
+    expect(stockToRow({nome:' Açúcar cristal ',observacoes:'Pacote de 1 kg'},true)).toEqual({nome:'AÇÚCAR CRISTAL',observacoes:'Pacote de 1 kg'});
+    expect(productToRow({categoria:'Bebidas'})).not.toHaveProperty('nome');
+    expect(stockToRow({observacoes:'Sem alteração'},true)).not.toHaveProperty('nome');
+  });
+  it('preserves state registration as optional text including leading zeros',()=>{
+    expect(supplierToRow({nome:'Fornecedor',inscricaoEstadual:' 00123 '})).toEqual({nome:'Fornecedor',inscricao_estadual:'00123'});
+    expect(supplierFromRow({inscricao_estadual:'ISENTO'}).inscricaoEstadual).toBe('ISENTO');
+    expect(supplierFromRow({}).inscricaoEstadual).toBe('');
+    expect(()=>supplierToRow({inscricaoEstadual:'1'.repeat(51)})).toThrow();
+  });
   it('normalizes form booleans and ignores immutable and computed fields',()=>{
     expect(customerToRow({nome:'Fixture',ativo:'false',limite:'100',codigoCliente:999,totalPendente:999,role:'ADMIN'})).toEqual({nome:'Fixture',ativo:false,limite:100});
   });

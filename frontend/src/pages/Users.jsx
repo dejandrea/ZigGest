@@ -1,3 +1,4 @@
+import SaveAndContinue,{continuesRegistration,focusRegistration} from '../components/SaveAndContinue';
 import React,{useEffect,useMemo,useState} from 'react';
 import {supabase} from '../services/supabase';
 import {useAuth} from '../auth/AuthContext';
@@ -40,11 +41,11 @@ export default function Users(){
   const requestClose=useFormClose(cancel,dirty,busy);
   const ownAccount=form?.id===profile?.id;
   async function save(event){
-    event.preventDefault();setBusy(true);setFormError('');setNotice('');
+    event.preventDefault();const keepOpen=continuesRegistration(event),target=event.currentTarget;setBusy(true);setFormError('');setNotice('');
     try{
       const {error:saveError}=await supabase.rpc('admin_save_account',{p_id:form.id,p_email:form.email.trim(),p_nome:form.nome.trim(),p_role:form.role,p_enabled:form.enabled});
       if(saveError)throw new Error(saveError.message);
-      setForm(null);setNotice('Acesso salvo. Novos usuários devem usar Primeiro acesso e confirmar o e-mail para entrar.');await load();
+      if(keepOpen){setForm({...empty});setInitialForm({...empty});focusRegistration({currentTarget:target});}else setForm(null);setNotice('Acesso salvo. Novos usuários devem usar Primeiro acesso e confirmar o e-mail para entrar.');await load();
     }catch(cause){setFormError(cause.message);}finally{setBusy(false);}
   }
   return <div className="users-page">
@@ -72,7 +73,7 @@ export default function Users(){
         </fieldset>
         {!form.id&&<div className="users-onboarding"><strong>Como funciona o primeiro acesso?</strong><p>Após salvar, o usuário escolhe sua senha em Primeiro acesso e confirma o e-mail. Você não precisa cadastrar uma senha para ele.</p></div>}
         {formError&&<p className="users-message users-error" role="alert">{formError}</p>}
-        <div className="users-form-actions"><button type="button" className="users-secondary" onClick={requestClose} disabled={busy}>Cancelar</button><button className="users-primary" disabled={busy}>{busy?'Salvando…':'Salvar acesso'}</button></div>
+        <div className="users-form-actions"><button type="button" className="users-secondary" onClick={requestClose} disabled={busy}>Cancelar</button><button className="users-primary" disabled={busy}>{busy?'Salvando…':'Salvar acesso'}</button><SaveAndContinue editing={!!form.id} disabled={busy}/></div>
         </form>
       </section></FormModal>}
     </div>

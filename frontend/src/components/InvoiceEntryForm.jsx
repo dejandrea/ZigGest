@@ -1,3 +1,4 @@
+import {formatDocument} from '../utils/contactMasks';
 import React,{useRef,useState} from 'react';
 import InvoiceTotals from './InvoiceTotals';
 import {invoiceTotals} from '../services/invoiceTotals';
@@ -27,7 +28,7 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
   });}catch{/* Mantém a entrada e informa a falha de consulta. */}
  }
  const active=[...items.filter(i=>!createdItems.some(c=>c._id===i._id)),...createdItems].filter(i=>i.ativo);
- function itemCreated(_message,item){setCreatedItems(prev=>[...prev,item]);change(newItemLine,'stockItemId',item.ativo?item._id:'');setNewItemLine(null);}
+ function itemCreated(_message,item,keepOpen){setCreatedItems(prev=>[...prev,item]);change(newItemLine,'stockItemId',item.ativo?item._id:'');if(!keepOpen)setNewItemLine(null);}
  async function loadFile(event){
   const file=event.target.files?.[0];event.target.value='';if(!file)return;
   if(document&&!window.confirm('Substituir a nota e descartar os vínculos não salvos?'))return;
@@ -79,8 +80,8 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
    {invoice&&<>
     <div className="product-wide"><button type="button" className="users-secondary" onClick={openSupplier}>Cadastrar fornecedor da NF-e</button>{supplierNotice&&<p role="status" className="users-message users-success">{supplierNotice}</p>}</div>
     <section className="product-wide invoice-section" aria-label="Dados da NF-e"><h3>NF-e {invoice.number} / Série {invoice.series}</h3><div className="invoice-header-grid"><label>Número da nota<input readOnly value={invoice.number}/></label><label>Série<input readOnly value={invoice.series}/></label><label className="invoice-span-2">Data de emissão<input readOnly value={new Date(invoice.issuedAt).toLocaleString('pt-BR')}/></label></div></section>
-    <section className="product-wide invoice-section"><h3>Fornecedor / emitente</h3><div className="invoice-party-grid"><label>CPF / CNPJ do fornecedor<input readOnly value={invoice.issuerDocument}/></label><label>Nome / razão social do fornecedor<input readOnly value={invoice.issuerName}/></label></div></section>
-    <section className="product-wide invoice-section"><h3>Destinatário</h3><div className="invoice-party-grid"><label>CPF / CNPJ do destinatário<input readOnly value={invoice.recipientDocument}/></label><label>Nome / razão social do destinatário<input readOnly value={invoice.recipientName}/></label></div></section>
+    <section className="product-wide invoice-section"><h3>Fornecedor / emitente</h3><div className="invoice-party-grid"><label>CPF / CNPJ do fornecedor<input readOnly value={formatDocument(invoice.issuerDocument)}/></label><label>Nome / razão social do fornecedor<input readOnly value={invoice.issuerName}/></label></div></section>
+    <section className="product-wide invoice-section"><h3>Destinatário</h3><div className="invoice-party-grid"><label>CPF / CNPJ do destinatário<input readOnly value={formatDocument(invoice.recipientDocument)}/></label><label>Nome / razão social do destinatário<input readOnly value={invoice.recipientName}/></label></div></section>
     <div className="product-wide invoice-section-heading"><h3>Produtos / insumos</h3></div><div className="product-wide invoice-items">{invoice.items.map((item,index)=>{
      const line=lines[index],stock=active.find(i=>i._id===line.stockItemId),total=Number(line.quantity)*Number(line.factor);
      return <section key={item.line} className="invoice-item" aria-label={'Item '+item.line+' da nota'}><h3>{item.line}. {item.name}</h3><p className="inventory-code">Código {item.code} · NCM {item.ncm} · CFOP {item.cfop}</p><div className="invoice-fiscal-grid">{[['Quantidade na nota',number.format(Number(item.quantity))],['Unidade na nota',item.unit],['Valor unitário',money.format(Number(item.unitPrice))],['Valor total',money.format(Number(item.total))]].map(([label,value])=><label key={label}>{label}<input aria-label={label+' do item '+item.line} readOnly value={value}/></label>)}</div>
@@ -100,6 +101,6 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
   </fieldset></form>
  </div></FormModal>
  {newItemLine!==null&&<StockItemForm initialValues={{nome:invoice.items[newItemLine].name}} onClose={()=>setNewItemLine(null)} onSuccess={itemCreated}/>}
- {creatingSupplier&&<SupplierForm initialValues={invoice.supplier} onClose={()=>setCreatingSupplier(false)} onSuccess={(_message,supplier)=>{setCreatingSupplier(false);setSupplierNotice('Fornecedor cadastrado: '+supplier.nome);}}/>}
+ {creatingSupplier&&<SupplierForm initialValues={invoice.supplier} onClose={()=>setCreatingSupplier(false)} onSuccess={(_message,supplier,keepOpen)=>{if(!keepOpen)setCreatingSupplier(false);setSupplierNotice('Fornecedor cadastrado: '+supplier.nome);}}/>}
  </>;
 }

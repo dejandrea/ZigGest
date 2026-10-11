@@ -56,11 +56,12 @@ export function itemFromRow(row) {
 }
 
 export function supplierFromRow(row) {
- return {_id:row.id,codigoFornecedor:row.codigo_fornecedor,nome:row.nome,nomeFantasia:row.nome_fantasia??'',documento:row.documento??'',contato:row.contato??'',telefone:row.telefone??'',email:row.email??'',endereco:row.endereco??'',observacoes:row.observacoes??'',ativo:row.ativo,createdAt:row.created_at,updatedAt:row.updated_at};
+ return {_id:row.id,codigoFornecedor:row.codigo_fornecedor,nome:row.nome,nomeFantasia:row.nome_fantasia??'',inscricaoEstadual:row.inscricao_estadual??'',documento:row.documento??'',contato:row.contato??'',telefone:row.telefone??'',email:row.email??'',endereco:row.endereco??'',observacoes:row.observacoes??'',ativo:row.ativo,createdAt:row.created_at,updatedAt:row.updated_at};
 }
 export function supplierToRow(body) {
  const row={};
  for(const key of ['nome','documento','contato','telefone','email','endereco','observacoes']) if(body[key]!==undefined) row[key]=String(body[key]).trim();
+ if(body.inscricaoEstadual!==undefined){row.inscricao_estadual=String(body.inscricaoEstadual).trim();if(row.inscricao_estadual.length>50)throw new Error('A inscrição estadual deve ter até 50 caracteres.');}
  if(body.nomeFantasia!==undefined)row.nome_fantasia=String(body.nomeFantasia).trim();
  if(body.ativo!==undefined)row.ativo=boolean(body.ativo);
  if(row.nome!==undefined&&!row.nome)throw new Error('Informe o nome do fornecedor.');
@@ -80,7 +81,7 @@ export function stockQuantity(value,allowZero=false){
 export function stockFromRow(row){return {fornecedores:row.fornecedores??[],fornecedoresIds:row.fornecedores_ids??(row.fornecedores??[]).map(l=>l.supplier_id),_id:row.id,codigoInsumo:row.codigo_insumo,nome:row.nome,unidade:row.unidade,saldo:Number(row.saldo),estoqueMinimo:row.estoque_minimo==null?null:Number(row.estoque_minimo),bloquearEstoqueNegativo:row.bloquear_estoque_negativo??false,observacoes:row.observacoes??'',ativo:row.ativo};}
 export function stockToRow(body,editing=false){
  const row={};
- if(body.nome!==undefined){row.nome=String(body.nome).trim();if(!row.nome||row.nome.length>200)throw new Error('Informe o nome do item de estoque.');}
+ if(body.nome!==undefined){row.nome=String(body.nome).trim().toLocaleUpperCase('pt-BR');if(!row.nome||row.nome.length>200)throw new Error('Informe o nome do item de estoque.');}
  if(!editing&&body.unidade!==undefined){if(!productUnits.includes(body.unidade))throw new Error('Unidade inválida.');row.unidade=body.unidade;}
  if(body.estoqueMinimo!==undefined)row.estoque_minimo=body.estoqueMinimo===null||String(body.estoqueMinimo).trim()===''?null:stockQuantity(body.estoqueMinimo,true);
  if(body.bloquearEstoqueNegativo!==undefined)row.bloquear_estoque_negativo=boolean(body.bloquearEstoqueNegativo);
@@ -101,6 +102,7 @@ export function productToRow(body) {
  const row={};
  if(body.estoqueSaidaId!==undefined){if(body.estoqueSaidaId&&!/^[a-f\d]{8}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{4}-[a-f\d]{12}$/i.test(body.estoqueSaidaId))throw new Error('Estoque de saída inválido.');row.stock_location_id=body.estoqueSaidaId||null;}
  for(const key of ['nome','categoria','observacoes']) if(body[key]!==undefined)row[key]=String(body[key]).trim();
+ if(row.nome!==undefined)row.nome=row.nome.toLocaleUpperCase('pt-BR');
  if(row.nome!==undefined&&(!row.nome||row.nome.length>200))throw new Error('Informe um nome de até 200 caracteres.');
  if(body.codigoBarras!==undefined){
   if(body.codigoBarras!==null&&typeof body.codigoBarras!=='string')throw new Error('Informe o código de barras como texto.');

@@ -105,9 +105,9 @@ it('prefills supplier data from the issuer and preserves the invoice while savin
  fireEvent.click(screen.getByRole('button',{name:'Cadastrar fornecedor da NF-e'}));
  const editor=await screen.findByRole('dialog',{name:'Novo fornecedor'});
  expect(within(editor).getByLabelText('Nome / razão social')).toHaveValue(supplier.nome);
- expect(within(editor).getByLabelText('CPF / CNPJ')).toHaveValue(supplier.documento);
+ expect(within(editor).getByLabelText('CPF / CNPJ')).toHaveValue('12.345.678/0001-95');
  expect(within(editor).getByLabelText('Nome fantasia')).toHaveValue('Bebidas Bahia');
- expect(within(editor).getByLabelText('Telefone')).toHaveValue('7133334444');
+ expect(within(editor).getByLabelText('Telefone')).toHaveValue('(71) 3333-4444');
  expect(within(editor).getByLabelText('Endereço')).toHaveValue('Rua das Bebidas, 10, Centro, Salvador / BA, CEP 40000000');
  expect(within(editor).getByLabelText('Observações')).toHaveValue('Inscrição estadual: 123456');
  fireEvent.click(within(editor).getByRole('button',{name:'Salvar fornecedor'}));
