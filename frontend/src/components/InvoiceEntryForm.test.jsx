@@ -69,11 +69,11 @@ it('creates and selects an insumo without losing invoice links, quantities or no
  fireEvent.change(screen.getByLabelText('Observações da entrada'),{target:{value:'Recebimento parcial'}});
  const date=screen.getByLabelText('Data de entrada').value;
  fireEvent.click(screen.getByRole('button',{name:'Novo insumo para o item 2'}));
- const editor=screen.getByRole('dialog',{name:'Novo item de estoque'});
+ const editor=screen.getByRole('dialog',{name:'Novo item'});await waitFor(()=>expect(within(editor).getByRole('button',{name:'Salvar item'})).toBeEnabled());
  expect(within(editor).getByLabelText('Nome do item')).toHaveValue('Coca-Cola pacote 2');
  fireEvent.change(within(editor).getByLabelText('Nome do item'),{target:{value:created.nome}});
  fireEvent.click(within(editor).getByRole('button',{name:'Salvar item'}));
- await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Novo item de estoque'})).not.toBeInTheDocument());
+ await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Novo item'})).not.toBeInTheDocument());
  expect(screen.getByLabelText('Insumo do item 2')).toHaveValue(created._id);
  expect(screen.getByLabelText('Insumo do item 1')).toHaveValue(item._id);
  expect(screen.getByLabelText('Observações da entrada')).toHaveValue('Recebimento parcial');
@@ -86,12 +86,12 @@ it('keeps the imported invoice when insumo creation fails or is canceled',async(
  api.post.mockRejectedValueOnce(new Error('Falha ao cadastrar'));
  render(<InvoiceEntryForm items={[]} onClose={vi.fn()} onSuccess={vi.fn()}/>);await upload();
  fireEvent.click(screen.getByRole('button',{name:'Novo insumo para o item 1'}));
- const editor=screen.getByRole('dialog',{name:'Novo item de estoque'});
+ const editor=screen.getByRole('dialog',{name:'Novo item'});await waitFor(()=>expect(within(editor).getByRole('button',{name:'Salvar item'})).toBeEnabled());
  fireEvent.click(within(editor).getByRole('button',{name:'Salvar item'}));
  expect(await within(editor).findByRole('alert')).toHaveTextContent('Falha ao cadastrar');
  fireEvent.click(within(editor).getByRole('button',{name:'Cancelar'}));
  expect(screen.getByText('NF-e 1 / Série 1')).toBeInTheDocument();
- expect(screen.queryByRole('dialog',{name:'Novo item de estoque'})).not.toBeInTheDocument();
+ expect(screen.queryByRole('dialog',{name:'Novo item'})).not.toBeInTheDocument();
  expect(screen.getByLabelText('Insumo do item 1')).toHaveValue('');
 });
 it('prefills supplier data from the issuer and preserves the invoice while saving',async()=>{

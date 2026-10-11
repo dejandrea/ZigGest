@@ -7,7 +7,7 @@ import App from './App';
 const mocks=vi.hoisted(()=>({auth:{},signIn:vi.fn(),signUp:vi.fn(),reset:vi.fn(),rpc:vi.fn()}));
 vi.mock('./auth/AuthContext',()=>({useAuth:()=>mocks.auth}));
 vi.mock('./services/supabase',()=>({configurationError:null,supabase:{rpc:mocks.rpc,auth:{signInWithPassword:mocks.signIn,signUp:mocks.signUp,resetPasswordForEmail:mocks.reset}}}));
-vi.mock('./pages/Produtos',()=>({default:()=> <h1>Cadastro de produtos</h1>}));
+vi.mock('./pages/Itens',()=>({default:()=> <h1>Cadastro de itens</h1>}));
 vi.mock('./pages/Clientes',()=>({default:()=> <h1>Cadastro de clientes</h1>}));
 function open(path='/'){return render(<MemoryRouter initialEntries={[path]}><App/></MemoryRouter>);}
 beforeEach(()=>{
@@ -30,7 +30,7 @@ describe('protected application',()=>{
     expect(screen.queryByRole('button',{name:'Clientes'})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:'Cadastros'}));
     expect(screen.getByRole('button',{name:'Clientes'})).toHaveAttribute('aria-current','page');
-    expect(screen.getByRole('button',{name:'Produtos'})).toBeEnabled();
+    expect(screen.getByRole('button',{name:'Itens'})).toBeEnabled();
     fireEvent.click(screen.getByRole('button',{name:'Frente de loja'}));
     expect(screen.queryByRole('button',{name:'Clientes'})).not.toBeInTheDocument();
     expect(screen.getByRole('button',{name:'PDV'})).toBeEnabled();
@@ -110,10 +110,10 @@ describe('protected application',()=>{
   });
 });
 
-it('opens products from the protected registration menu',()=>{
+it('opens items from the protected registration menu',()=>{
  open();
  fireEvent.click(screen.getByRole('button',{name:'Cadastros'}));
- fireEvent.click(screen.getByRole('button',{name:'Produtos'}));
- expect(screen.getByRole('heading',{name:'Cadastro de produtos'})).toBeInTheDocument();
- expect(screen.getByRole('button',{name:'Produtos'})).toHaveAttribute('aria-current','page');
+ fireEvent.click(screen.getByRole('button',{name:'Itens'}));
+ expect(screen.getByRole('heading',{name:'Cadastro de itens'})).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Itens'})).toHaveAttribute('aria-current','page');
 });

@@ -1,37 +1,20 @@
-import SaveAndContinue,{continuesRegistration,focusRegistration} from './SaveAndContinue';
 import React,{useEffect,useRef,useState} from 'react';
 import api from '../services/api';
-import {productUnits} from '../services/dataMapping';
+import ItemForm from './ItemForm';
+import {registeredItem} from '../services/catalog';
 import FormModal,{useFormClose} from './FormModal';
 import useOperation from '../hooks/useOperation';
 import SupplierForm from './SupplierForm';
 
 export function StockItemForm({item,initialValues={},onClose,onSuccess}){
- const [initial,setInitial]=useState(()=>({nome:item?.nome??initialValues.nome??'',unidade:item?.unidade??initialValues.unidade??'UN',estoqueMinimo:item?.estoqueMinimo??'',bloquearEstoqueNegativo:item?.bloquearEstoqueNegativo??false,observacoes:item?.observacoes??'',ativo:item?.ativo??true,fornecedoresIds:item?.fornecedoresIds??[]}));
- const [suppliers,setSuppliers]=useState([]),[supplierSlots,setSupplierSlots]=useState(Math.max(3,initial.fornecedoresIds.length)),[supplierLoading,setSupplierLoading]=useState(true),[supplierError,setSupplierError]=useState('');
- useEffect(()=>{let active=true;api.get('/fornecedores').then(({data})=>{if(active)setSuppliers(data);}).catch(()=>{if(active)setSupplierError('Não foi possível carregar os fornecedores. Os vínculos atuais serão preservados.');}).finally(()=>{if(active)setSupplierLoading(false);});return()=>{active=false;};},[]);
- const [form,setForm]=useState(initial),{busy,error,run}=useOperation();
- const dirty=JSON.stringify(form)!==JSON.stringify(initial),close=useFormClose(onClose,dirty,busy);
- const change=(key,value)=>setForm(prev=>({...prev,[key]:value}));
- async function save(e){e.preventDefault();const keepOpen=continuesRegistration(e),target=e.currentTarget;try{const body={...form,fornecedoresIds:form.fornecedoresIds.filter(Boolean)};const {data}=await run(()=>item?api.put('/insumos/'+item.codigoInsumo,body):api.post('/insumos',body));if(keepOpen){const next={nome:'',unidade:'UN',estoqueMinimo:'',bloquearEstoqueNegativo:false,observacoes:'',ativo:true,fornecedoresIds:[]};setForm(next);setInitial(next);setSupplierSlots(3);focusRegistration({currentTarget:target});}onSuccess('Item de estoque salvo com sucesso.',data,keepOpen);}catch{/* Preserva formulário. */}}
- return <FormModal labelledBy="stock-title" dirty={dirty} busy={busy} onClose={close}><div className="users-editor product-editor">
-  <div className="users-editor-heading"><h2 id="stock-title">{item?'Editar item de estoque':'Novo item de estoque'}</h2><button type="button" aria-label="Fechar formulário" onClick={close} disabled={busy}>×</button></div>
-  <p className="users-editor-intro">Use a menor unidade controlada. Para Coca-Cola lata, escolha UN. O saldo começa em zero e é alterado por movimentações.</p>
-  {error&&<p role="alert" className="users-message users-error">{error}</p>}
-  <form onSubmit={save}><fieldset disabled={busy} className="product-fields">
-   <label className="product-wide">Nome do item<input required maxLength={200} autoFocus value={form.nome} onChange={e=>change('nome',e.target.value)}/></label>
-   <label>Unidade de estoque<select disabled={!!item} value={form.unidade} onChange={e=>change('unidade',e.target.value)}>{productUnits.map(u=><option key={u}>{u}</option>)}</select></label>
-   <label>Estoque mínimo (opcional)<input type="number" min="0" step="0.001" value={form.estoqueMinimo} onChange={e=>change('estoqueMinimo',e.target.value)}/></label>
-   <small className="product-wide">Deixe em branco para não receber alertas de reposição deste insumo.</small>
-   <section className="product-wide product-composition" aria-label="Fornecedores do insumo"><h3>Fornecedores do insumo</h3><p>As notas de entrada também vinculam o fornecedor automaticamente. Você pode informar três ou mais fornecedores para as cotações.</p>{supplierLoading&&<p role="status">Carregando fornecedores…</p>}{supplierError&&<p role="alert">{supplierError}</p>}{Array.from({length:supplierSlots},(_,index)=><label key={index}>Fornecedor {index+1}<select disabled={supplierLoading||!!supplierError} value={form.fornecedoresIds[index]??''} onChange={e=>{const ids=[...form.fornecedoresIds];ids[index]=e.target.value;change('fornecedoresIds',ids);}}><option value="">Não informado</option>{suppliers.filter(s=>s.ativo||s._id===form.fornecedoresIds[index]).map(s=><option key={s._id} value={s._id} disabled={form.fornecedoresIds.some((id,i)=>i!==index&&id===s._id)}>{s.nome}{s.ativo?'':' (inativo)'}</option>)}</select></label>)}<button type="button" className="users-secondary" disabled={supplierSlots>=50||supplierLoading||!!supplierError} onClick={()=>setSupplierSlots(n=>n+1)}>+ Mais um fornecedor</button></section>
-   <label className="product-wide"><span className="inventory-toggle"><input type="checkbox" checked={form.bloquearEstoqueNegativo} onChange={e=>change('bloquearEstoqueNegativo',e.target.checked)}/> Bloquear saída com estoque negativo</span></label>
-   <small className="product-wide">Desmarcado: permite baixar o insumo antes de lançar a entrada. O saldo negativo fica visível até ser regularizado.</small>
-   {item&&<small className="product-wide">A unidade fica fixa para preservar o significado do saldo e dos vínculos.</small>}
-   <label className="product-wide">Observações<textarea rows={3} maxLength={2000} value={form.observacoes} onChange={e=>change('observacoes',e.target.value)}/></label>
-   <label className="product-wide">Situação<select value={String(form.ativo)} onChange={e=>change('ativo',e.target.value==='true')}><option value="true">Ativo</option><option value="false">Inativo</option></select></label>
-   <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button className="users-primary" type="submit">{busy?'Salvando…':'Salvar item'}</button><SaveAndContinue editing={!!item}/></div>
-  </fieldset></form>
- </div></FormModal>;
+ const [registered,setRegistered]=useState(null),[loading,setLoading]=useState(!!item),[error,setError]=useState('');
+ useEffect(()=>{if(!item)return;let live=true;api.get('/itens').then(({data})=>{
+  if(!live)return;const found=data.find(row=>row.stockId===item._id||row.codigoInsumo===item.codigoInsumo);
+  if(!found)throw new Error('Item não encontrado no cadastro unificado.');
+  setRegistered(found.key?found:registeredItem(null,item));
+ }).catch(()=>{if(live)setError('Não foi possível carregar o cadastro do item. Feche e tente novamente.');}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};},[item]);
+ if(loading||error)return <FormModal labelledBy="stock-loading-title" onClose={onClose}><div className="users-editor"><h2 id="stock-loading-title">Cadastro do item</h2>{error?<p role="alert">{error}</p>:<p role="status">Carregando item…</p>}<button type="button" onClick={onClose}>Fechar</button></div></FormModal>;
+ return <ItemForm item={registered} initialValues={{produto:false,insumo:true,...initialValues}} onClose={onClose} onSuccess={(message,data,keepOpen)=>onSuccess(message,data._stock??data,keepOpen)}/>;
 }
 
 export function StockMovementForm({items,products=[],initialItem=null,onClose,onSuccess}){

@@ -1,5 +1,5 @@
 export const navigationGroups = [
-  { title:'Cadastros', items:[{label:'Clientes',path:'/clientes',icon:'clients'},{label:'Fornecedores',path:'/fornecedores',icon:'clients'},{label:'Produtos',path:'/produtos',icon:'box'},{label:'Insumos / itens de estoque',path:'/insumos',icon:'box'}] },
+  { title:'Cadastros', items:[{label:'Clientes',path:'/clientes',icon:'clients'},{label:'Fornecedores',path:'/fornecedores',icon:'clients'},{label:'Itens',path:'/itens',icon:'box'}] },
   { title:'Financeiro', items:[{label:'A receber',path:'/contas',icon:'money'},{label:'A pagar',path:'/contas-pagar',icon:'money'},{label:'Movimentações',path:'/financeiro',icon:'report'},{label:'Resumo de contas',path:'/resumo',icon:'report'}] },
   { title:'Estoque', items:[{label:'Visão do estoque',path:'/estoque',icon:'box'},{label:'Entradas e saídas',path:'/estoque/movimentacoes',icon:'box'},{label:'Inventário',path:'/estoque/inventario',icon:'report'}] },
   { title:'Compras', items:[{label:'Listas e cotações',path:'/compras',icon:'box'}] },

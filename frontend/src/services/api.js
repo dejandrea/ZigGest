@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import {catalogue,registrationPayload,registrationResult} from './catalog';
 import {parseNfe} from './nfe';
 import {manualInvoicePayload} from './manualInvoice';
 import {cents,paymentMethods,payablePayload,payableFromRow} from './payables';
@@ -43,6 +44,10 @@ const operations=()=>all('financial_operations','created_at',operationColumns);
 const api = {
   async get(path) {
     const [resource, id, child] = route(path);
+    if(resource==='itens'){
+      const [products,stocks]=await Promise.all([api.get('/produtos'),api.get('/insumos')]);
+      return {data:catalogue(products.data,stocks.data)};
+    }
     if(resource==='comandas'&&!id){
       const [rows,items,closures,payments]=await Promise.all([all('dining_tables','codigo_mesa'),all('dining_table_items','codigo_mesa'),all('comanda_closures','created_at'),all('comanda_payments','closure_id')]);
       const settlementsByComanda=new Map(),itemsByCode=new Map(),paymentsByClosure=new Map();
@@ -146,6 +151,7 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='itens')return {data:registrationResult(await result(client().rpc('save_registered_item',registrationPayload(body))))};
     if(resource==='compras')return {data:await result(client().rpc('purchase_operation',{p_id:body.id,p_action:body.action,p_revision:body.revision??null,p_data:body.data??{}}))};
     if(resource==='estoques')return {data:await result(client().rpc('stock_location_operation',{p_id:body.id,p_data:{nome:body.nome,ativo:body.ativo}}))};
     if(resource==='estoque-transferencias')return {data:await result(client().rpc('transfer_stock',{p_id:body.id,p_data:{origem_id:body.origem_id,destino_id:body.destino_id,item_id:body.item_id,quantidade:stockQuantity(body.quantidade),observacoes:body.observacoes??''}}))};

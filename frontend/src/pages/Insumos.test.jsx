@@ -10,23 +10,23 @@ const rows=[{_id:'i1',codigoInsumo:1,nome:'Coca-Cola lata',unidade:'UN',saldo:14
 beforeEach(()=>{vi.clearAllMocks();api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:rows}));api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
 it('clears the insumo for a new registration while keeping the form open',async()=>{
  open();await screen.findByText('Coca-Cola lata');
- fireEvent.click(screen.getByRole('button',{name:/Novo item/}));
+ fireEvent.click(screen.getByRole('button',{name:/Novo item/}));await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar item'})).toBeEnabled());
  fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Novo insumo'}});
  fireEvent.change(screen.getByLabelText('Estoque mínimo (opcional)'),{target:{value:'10'}});
  fireEvent.click(screen.getByRole('button',{name:'Salvar e continuar'}));
  await waitFor(()=>expect(screen.getByLabelText('Nome do item')).toHaveValue(''));
- expect(screen.getByLabelText('Estoque mínimo (opcional)')).toHaveValue(null);
+ expect(await screen.findByLabelText('Estoque mínimo (opcional)')).toHaveValue(null);
  expect(screen.getByRole('dialog')).toBeInTheDocument();
 });
 it('saves three supplier links together with the insumo without touching its balance',async()=>{
  const vendors=[{_id:'s1',nome:'Fornecedor um',ativo:true},{_id:'s2',nome:'Fornecedor dois',ativo:true},{_id:'s3',nome:'Fornecedor três',ativo:true}];
  api.get.mockImplementation(path=>Promise.resolve({data:path==='/fornecedores'?vendors:path==='/estoques'?{locations:[],balances:[]}:rows}));
- open();await screen.findByText('Coca-Cola lata');fireEvent.click(screen.getByRole('button',{name:/Novo item/}));
+ open();await screen.findByText('Coca-Cola lata');fireEvent.click(screen.getByRole('button',{name:/Novo item/}));await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar item'})).toBeEnabled());
  await waitFor(()=>expect(screen.getByLabelText('Fornecedor 1')).toBeEnabled());
  fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Refrigerante'}});
  for(let index=1;index<=3;index++)fireEvent.change(screen.getByLabelText('Fornecedor '+index),{target:{value:'s'+index}});
  fireEvent.click(screen.getByRole('button',{name:'Salvar item'}));
- await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/insumos',expect.objectContaining({nome:'Refrigerante',fornecedoresIds:['s1','s2','s3']})));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/itens',expect.objectContaining({nome:'Refrigerante',fornecedoresIds:['s1','s2','s3']})));
  expect(api.post.mock.calls[0][1]).not.toHaveProperty('saldo');
 });
 it('shows the chosen sector balance and offers transfers from the stock overview',async()=>{
@@ -44,10 +44,10 @@ it('shows the shared balance and filters low-stock items',async()=>{
 });
 it('creates a base item without setting its balance directly',async()=>{
  open();await screen.findByText('Coca-Cola lata');
- fireEvent.click(screen.getByRole('button',{name:/Novo item/}));
+ fireEvent.click(screen.getByRole('button',{name:/Novo item/}));await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar item'})).toBeEnabled());
  fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Água mineral'}});
  fireEvent.click(screen.getByRole('button',{name:'Salvar item'}));
- await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/insumos',expect.objectContaining({nome:'Água mineral',unidade:'UN',estoqueMinimo:'',bloquearEstoqueNegativo:false})));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/itens',expect.objectContaining({nome:'Água mineral',unidade:'UN',estoqueMinimo:'',bloquearEstoqueNegativo:false})));
  expect(api.post.mock.calls[0][1]).not.toHaveProperty('saldo');
 });
 it('converts 12 packs of 12 and safely reuses a request after a failed response',async()=>{
@@ -71,7 +71,7 @@ it('converts 12 packs of 12 and safely reuses a request after a failed response'
 it('keeps the base unit immutable in the edit form',async()=>{
  open();await screen.findByText('Coca-Cola lata');
  fireEvent.click(screen.getByRole('button',{name:'Editar item Coca-Cola lata'}));
- expect(screen.getByLabelText('Unidade de estoque')).toBeDisabled();
+ expect(await screen.findByLabelText('Unidade')).toBeDisabled();
 });
 it('excludes items without a minimum from replenishment alerts and saves optional controls',async()=>{
  api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:[{...rows[0],saldo:-2,estoqueMinimo:null}]}));
@@ -82,10 +82,11 @@ it('excludes items without a minimum from replenishment alerts and saves optiona
  expect(screen.queryByText('Coca-Cola lata')).not.toBeInTheDocument();
  fireEvent.change(screen.getByLabelText('Filtrar estoque'),{target:{value:'all'}});
  fireEvent.click(screen.getByRole('button',{name:'Editar item Coca-Cola lata'}));
- expect(screen.getByLabelText('Estoque mínimo (opcional)')).toHaveValue(null);
+ expect(await screen.findByLabelText('Estoque mínimo (opcional)')).toHaveValue(null);
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar item'})).toBeEnabled());
  fireEvent.click(screen.getByLabelText('Bloquear saída com estoque negativo'));
  fireEvent.click(screen.getByRole('button',{name:'Salvar item'}));
- await waitFor(()=>expect(api.put).toHaveBeenCalledWith('/insumos/1',expect.objectContaining({estoqueMinimo:'',bloquearEstoqueNegativo:true})));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/itens',expect.objectContaining({estoqueMinimo:'',bloquearEstoqueNegativo:true})));
 });
 it('records the arrival date on a backdated entry',async()=>{
  open();await screen.findByText('Coca-Cola lata');
@@ -104,10 +105,10 @@ it('creates an insumo from a manual entry while preserving quantities and notes'
  fireEvent.change(screen.getByLabelText('Unidades por embalagem'),{target:{value:'12'}});
  fireEvent.change(screen.getByLabelText('Observações'),{target:{value:'Compra nova'}});
  fireEvent.click(screen.getByRole('button',{name:'Novo insumo'}));
- const editor=screen.getByRole('dialog',{name:'Novo item de estoque'});
+ const editor=screen.getByRole('dialog',{name:'Novo item'});await waitFor(()=>expect(within(editor).getByRole('button',{name:'Salvar item'})).toBeEnabled());
  fireEvent.change(within(editor).getByLabelText('Nome do item'),{target:{value:'Água'}});
  fireEvent.click(within(editor).getByRole('button',{name:'Salvar item'}));
- await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Novo item de estoque'})).not.toBeInTheDocument());
+ await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Novo item'})).not.toBeInTheDocument());
  expect(screen.getByLabelText('Item de estoque')).toHaveValue('i3');
  expect(screen.getByLabelText('Observações')).toHaveValue('Compra nova');
  expect(screen.getByText(/Entrada: 24 UN/)).toBeInTheDocument();

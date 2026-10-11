@@ -3,6 +3,15 @@ import api from './api';
 import {nfeXml} from '../testFixtures/nfe';
 import {installmentPlan} from './payables';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
+it('saves both uses through one atomic item RPC without sending balances',async()=>{
+ mock.rpc.mockResolvedValue({data:{product:{id:'p',codigo_produto:1,nome:'COLA',unidade:'UN',stock_item_id:'s',custo:0,preco_venda:6,ativo:true,componentes:[{stock_item_id:'s',quantidade:1}]},stock:{id:'s',codigo_insumo:2,nome:'COLA',unidade:'UN',saldo:0,ativo:true}},error:null});
+ const {data}=await api.post('/itens',{requestId:'request',produto:true,insumo:true,nome:'Cola',unidade:'UN',precoVenda:'6',fornecedoresIds:[],saldo:999});
+ expect(mock.rpc).toHaveBeenCalledTimes(1);
+ expect(mock.rpc).toHaveBeenCalledWith('save_registered_item',expect.objectContaining({p_request:'request',p_product:null,p_stock:null,p_data:expect.objectContaining({produto:true,insumo:true,components:[]})}));
+ expect(mock.rpc.mock.calls[0][1].p_data.stock).not.toHaveProperty('saldo');
+ expect(data).toMatchObject({produto:true,insumo:true,productId:'p',stockId:'s',saldo:0});
+ expect(mock.from).not.toHaveBeenCalled();
+});
 it('routes invoice edits with the expected revision through one atomic RPC',async()=>{
  await api.put('/entradas-nfe/note',{requestId:'edit',revision:3,header:{number:'123',series:'1',issuerName:'Fornecedor',issuerDocument:'12345678000195',issuedAt:'2026-01-01T13:00:00Z',total:'144'},lines:[{name:'Cola',unit:'PCT',invoiceQuantity:'3',unitPrice:'48',total:'144',stockItemId:'11111111-1111-1111-1111-111111111111',quantity:'3',factor:'12'}],saldo:999});
  expect(mock.rpc).toHaveBeenCalledWith('edit_stock_invoice',expect.objectContaining({p_id:'note',p_request:'edit',p_revision:3,p_header:expect.objectContaining({total:144}),p_lines:[expect.objectContaining({quantidade:3,fator:12})]}));

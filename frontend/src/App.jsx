@@ -5,7 +5,7 @@ import FinancialMovements from './pages/FinancialMovements';
 import Home from './pages/Home';
 import Clientes from './pages/Clientes';
 import Fornecedores from './pages/Fornecedores';
-import Produtos from './pages/Produtos';
+import Itens from './pages/Itens';
 import Insumos from './pages/Insumos';
 import MovimentacoesEstoque from './pages/MovimentacoesEstoque';
 import ContasPagar from './pages/ContasPagar';
@@ -35,8 +35,9 @@ export default function App() {
       <Route path="/" element={<Home/>}/>
       <Route path="/clientes" element={<Clientes/>}/>
       <Route path="/fornecedores" element={<Fornecedores/>}/>
-      <Route path="/produtos" element={<Produtos/>}/>
-      <Route path="/insumos" element={<Insumos/>}/>
+      <Route path="/itens" element={<Itens/>}/>
+      <Route path="/produtos" element={<Navigate to="/itens" replace/>}/>
+      <Route path="/insumos" element={<Navigate to="/itens" replace/>}/>
       <Route path="/estoque" element={<Insumos overview/>}/>
       <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque/>}/>
       <Route path="/estoque/inventario" element={<Inventario/>}/>
