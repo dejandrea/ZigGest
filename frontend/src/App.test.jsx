@@ -33,9 +33,9 @@ describe('protected application',()=>{
     expect(screen.getByRole('button',{name:'Produtos'})).toBeEnabled();
     fireEvent.click(screen.getByRole('button',{name:'Frente de loja'}));
     expect(screen.queryByRole('button',{name:'Clientes'})).not.toBeInTheDocument();
-    expect(screen.getByRole('button',{name:'PDV Em breve'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'PDV'})).toBeEnabled();
     fireEvent.click(screen.getByRole('button',{name:'Frente de loja'}));
-    expect(screen.queryByRole('button',{name:'PDV Em breve'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'PDV'})).not.toBeInTheDocument();
   });
   it('opens and closes mobile navigation',()=>{
     open();const toggle=screen.getByRole('button',{name:'Menu'});

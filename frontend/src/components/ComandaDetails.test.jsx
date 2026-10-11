@@ -8,6 +8,12 @@ const methods=[{id:'pix',nome:'Pix',tipo:'PIX',ativo:true,usar_pdv:true},{id:'de
 const tab={id:'c1',codigo_mesa:1,nome_cliente:'Cliente Um',customer_codigo:1,total_geral:80,status:'aberta',itens:[{id:'item',descricao:'Consumo',quantidade:8,total:80,valor_unitario:10}],pagamentos:[]};
 const props={comanda:tab,customers:[{codigoCliente:1,nome:'Cliente Um',ativo:true}],finance:{methods},session:{method_ids:['pix']},onClose:vi.fn(),onSaved:vi.fn().mockResolvedValue()};
 beforeEach(()=>{vi.clearAllMocks();mock.post.mockResolvedValue({data:{}});});
+it('keeps a PDV in service after a partial payment and finalizes only through close',async()=>{
+ render(<ComandaDetails {...props} comanda={{...tab,origem:'PDV'}}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Pagar por valor'}));fireEvent.change(screen.getByLabelText('Valor a abater'),{target:{value:'30'}});fireEvent.click(screen.getByRole('button',{name:'Usar valor no pagamento'}));fireEvent.click(screen.getByRole('button',{name:'Revisar pagamento'}));await screen.findByRole('button',{name:'Confirmar pagamento parcial'});fireEvent.click(screen.getByRole('button',{name:'Confirmar pagamento parcial'}));
+ await waitFor(()=>expect(mock.post).toHaveBeenCalledWith('/comandas',expect.objectContaining({action:'PAY',data:expect.objectContaining({mode:'VALUE',payments:[{forma_id:'pix',valor:30}]})})));
+ expect(props.onClose).not.toHaveBeenCalled();expect(await screen.findByRole('button',{name:'Finalizar venda'})).toBeInTheDocument();
+});
 it('requires a registered customer for deferred payment and validates the exact split',()=>{
  expect(()=>validateComandaPayments(80,[{forma_id:'deferred',valor:'80'}],methods,null,'2026-12-01')).toThrow('cadastrado');
  expect(()=>validateComandaPayments(80,[{forma_id:'pix',valor:'79'}],methods,1,'2026-12-01')).toThrow('soma');

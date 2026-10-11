@@ -8,4 +8,5 @@
 .comanda-balances{display:flex;flex-wrap:wrap;gap:16px;padding:16px;background:#f7f9fc;border-radius:8px;margin:16px 0;color:#20354b;font-size:14px}
 .cash-history{margin-top:24px}.cash-checkbox{display:flex;gap:8px;align-items:center;font-size:12px;white-space:nowrap}.cash-history .users-table-wrap td{vertical-align:top}
 .comanda-rate,.comanda-history{margin-top:24px;padding-top:18px;border-top:1px solid #dfe6ee}.comanda-rate h3,.comanda-history h3{margin-bottom:16px}.comanda-shares{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+.comanda-products{margin:24px 0;padding:20px;background:#f7f9fc;border:1px solid #dfe6ee;border-radius:12px}.comanda-products h3{margin:0 0 16px}.comanda-products button{align-self:end}.comanda-detail .users-form-actions{flex-wrap:wrap}
 @media(max-width:600px){.comanda-customer-row{align-items:stretch;flex-direction:column}.comanda-detail .product-fields{grid-template-columns:1fr}.comanda-card{padding:20px}}

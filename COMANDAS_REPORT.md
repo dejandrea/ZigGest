@@ -14,7 +14,7 @@ Encerramentos são transacionais e não reaplicam valores em tentativas repetida
 
 A base de caixa permite uma sessão aberta por estabelecimento, todas as formas de pagamento ativas, acompanhamento por forma e fechamento com histórico. Qualquer comanda aberta impede o fechamento no banco. Comandas antigas abertas são vinculadas ao primeiro caixa aberto. Saldos financeiros e contagens físicas ficam separados. A evolução de abertura, sangria, suprimento, conferência e vendas está descrita em [Operações de caixa](CAIXA_REPORT.md).
 
-O consumo mantém o lançamento manual de descrição, preço e quantidade. O vínculo de produtos e a baixa automática de estoque serão tratados com o PDV.
+O consumo permite produtos cadastrados e lançamento avulso de descrição, preço e quantidade. Produtos com composição de insumos geram baixa de estoque na finalização. Consumo avulso não movimenta estoque. As transferências preservam preço, produto e quantidade, e permitem enviar itens ainda não pagos para uma comanda aberta ou nova do mesmo caixa. Pagamentos por valor permanecem na origem e limitam o valor transferível ao saldo restante.
 
 ## Verificação
 

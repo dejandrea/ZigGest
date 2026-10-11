@@ -18,7 +18,7 @@ O checkbox de nota fiscal começa desmarcado na finalização. Pode ser alterado
 
 As mutações confirmadas de cadastros, contas, estoque, comandas, financeiro, caixa e vendas geram logs privados com autor, perfil, data, entidade, operação, dados anteriores e posteriores e transação. Os logs não são expostos ao cliente e não podem ser editados ou apagados. Tentativas recusadas e operações revertidas pela transação não persistem logs. Os relatórios de registros de operações e vendas com/sem nota fiscal estão no menu com página “Em breve”, conforme solicitado.
 
-Esta etapa mantém o consumo manual das comandas. Não introduz frente de PDV nem baixa automática de estoque. Registros e vendas de caixas fechados não podem ser cancelados ou reabertos para evitar alteração retroativa da conferência.
+O PDV e as comandas compartilham os registros de venda, pagamentos e conferência do caixa. Produtos vinculados a insumos geram baixa automática na finalização e devolução de estoque no cancelamento ou reabertura. Consumo avulso sem produto não movimenta estoque. Registros e vendas de caixas fechados não podem ser cancelados ou reabertos para evitar alteração retroativa da conferência.
 
 ## Verificação
 

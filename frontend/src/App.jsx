@@ -49,6 +49,7 @@ export default function App() {
       <Route path="/relatorios/logs" element={<ReportComingSoon title="Registros de operações" description="Histórico de ações, responsáveis e alterações no sistema."/>}/>
       <Route path="/relatorios/vendas-notas" element={<ReportComingSoon title="Vendas e notas fiscais" description="Vendas com nota fiscal gerada e sem nota fiscal gerada."/>}/>
       <Route path="/comandas" element={<Comandas/>}/>
+      <Route path="/pdv" element={<Comandas pdv/>}/>
       <Route path="/caixa" element={<Caixa/>}/>
       <Route path="/mesas" element={<Navigate to="/comandas" replace/>}/>
       <Route element={<ProtectedRoute admin/>}><Route path="/usuarios" element={<Users/>}/></Route>
