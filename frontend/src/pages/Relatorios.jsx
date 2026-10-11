@@ -4,6 +4,7 @@ import '../styles/pages/Users.css';
 const reports=[
  {title:'Financeiro',description:'Contas a receber, contas a pagar e saldos bancários.',path:'/relatorios/financeiro',label:'Abrir relatório financeiro'},
  {title:'Estoque',description:'Saldos por insumo, itens negativos e abaixo do mínimo.',path:'/relatorios/estoque',label:'Abrir relatório de estoque'},
+ {title:'Produções',description:'Lotes, ingredientes consumidos, rendimentos previstos e realizados e custos estimados.',path:'/relatorios/producao',label:'Abrir relatório de produções'},
  {title:'Registros de operações',description:'Histórico de ações e responsáveis · Em breve.',path:'/relatorios/logs',label:'Ver registros de operações'},
  {title:'Vendas e notas fiscais',description:'Vendas com nota gerada e sem nota gerada · Em breve.',path:'/relatorios/vendas-notas',label:'Ver vendas e notas fiscais'},
 ];

@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import {catalogue,registrationPayload,registrationResult} from './catalog';
+import {productionPayload} from './production';
 import {parseNfe} from './nfe';
 import {manualInvoicePayload} from './manualInvoice';
 import {cents,paymentMethods,payablePayload,payableFromRow} from './payables';
@@ -44,6 +45,10 @@ const operations=()=>all('financial_operations','created_at',operationColumns);
 const api = {
   async get(path) {
     const [resource, id, child] = route(path);
+    if(resource==='producao'){
+      const [recipes,batches]=await Promise.all([all('production_recipes','numero'),all('production_batches','numero','id,numero,recipe_id,recipe_nome,recipe_revision,location_id,multiplier,status,inputs,outputs,extra_cost,total_cost,observacoes,ocorrido_em,actor_id,actor_nome,movement_id,reverse_reason,created_at,reversed_at')]);
+      return {data:{recipes,batches}};
+    }
     if(resource==='itens'){
       const [products,stocks]=await Promise.all([api.get('/produtos'),api.get('/insumos')]);
       return {data:catalogue(products.data,stocks.data)};
@@ -151,6 +156,7 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='producao')return {data:await result(client().rpc('production_operation',{p_request:body.requestId,p_id:body.id,p_action:body.action,p_revision:body.revision??null,p_data:productionPayload(body)}))};
     if(resource==='itens')return {data:registrationResult(await result(client().rpc('save_registered_item',registrationPayload(body))))};
     if(resource==='compras')return {data:await result(client().rpc('purchase_operation',{p_id:body.id,p_action:body.action,p_revision:body.revision??null,p_data:body.data??{}}))};
     if(resource==='estoques')return {data:await result(client().rpc('stock_location_operation',{p_id:body.id,p_data:{nome:body.nome,ativo:body.ativo}}))};

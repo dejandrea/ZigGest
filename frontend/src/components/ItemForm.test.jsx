@@ -61,3 +61,12 @@ it('links an existing stock item to an existing product rather than recreating b
  await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/itens',expect.objectContaining({codigoProduto:9,codigoInsumo:2,produto:true,insumo:true})));
  expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('saldos, notas e históricos'));
 });
+it('automatically provides own stock for a product supplied by production',async()=>{
+ await open({initialValues:{produto:true,insumo:false}});
+ fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Bolo'}});
+ fireEvent.change(screen.getByLabelText('Abastecimento / baixa de estoque'),{target:{value:'PRODUCTION'}});
+ expect(screen.getByRole('checkbox',{name:/Insumo —/})).toBeChecked();
+ expect(screen.queryByLabelText('Forma de consumo')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Salvar item'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/itens',expect.objectContaining({produto:true,insumo:true,abastecimento:'PRODUCTION',componentes:[]})));
+});

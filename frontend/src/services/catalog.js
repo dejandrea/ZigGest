@@ -18,7 +18,7 @@ export function catalogue(products,stocks){
 export function registrationPayload(body){
  if(typeof body.produto!=='boolean'||typeof body.insumo!=='boolean'||!body.produto&&!body.insumo)throw new Error('Marque Produto, Insumo ou ambos.');
  return {p_request:body.requestId,p_product:body.codigoProduto??null,p_stock:body.codigoInsumo??null,
-  p_data:{produto:body.produto,insumo:body.insumo,
+  p_data:{produto:body.produto,insumo:body.insumo,supply_mode:body.abastecimento??'DIRECT',
    product:body.produto?productToRow(body):{},stock:body.insumo?stockToRow(body):{},
    components:body.produto&&!body.insumo?componentsToRows(body.componentes??[]):[],
    suppliers:(body.fornecedoresIds??[]).filter(Boolean),

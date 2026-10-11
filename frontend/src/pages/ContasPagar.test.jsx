@@ -28,7 +28,7 @@ it('opens finance from the saved entry with supplier, total and due date prefill
  expect(await screen.findByLabelText('Fornecedor')).toHaveValue('Fornecedor NF');
  expect(screen.getByLabelText('Valor total')).toHaveValue(96);
  expect(screen.getByLabelText('Vencimento da parcela 1')).toHaveValue('2026-12-01');
- fireEvent.click(screen.getByRole('button',{name:'Salvar conta a pagar'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Salvar conta a pagar'}));
  await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/contas-pagar',expect.objectContaining({sourceId:'entry-1',total:'96'})));
 });
 it('declining finance leaves the entry untouched and creates no payable',()=>{

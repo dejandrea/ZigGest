@@ -3,6 +3,11 @@ import api from './api';
 import {nfeXml} from '../testFixtures/nfe';
 import {installmentPlan} from './payables';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
+it('routes a production through one guarded RPC with editable actual yields',async()=>{
+ await api.post('/producao',{requestId:'retry',id:'batch',action:'PRODUCE',revision:2,data:{recipe_id:'recipe',multiplier:'2',outputs:[{product_id:'cup',quantidade:'24'},{product_id:'cake',quantidade:'0'}],saldo:999,total_cost:1}});
+ expect(mock.rpc).toHaveBeenCalledWith('production_operation',expect.objectContaining({p_request:'retry',p_id:'batch',p_action:'PRODUCE',p_revision:2,p_data:expect.objectContaining({multiplier:2,outputs:[{product_id:'cup',quantidade:24},{product_id:'cake',quantidade:0}]})}));
+ expect(mock.rpc.mock.calls[0][1].p_data).not.toHaveProperty('saldo');expect(mock.rpc.mock.calls[0][1].p_data).not.toHaveProperty('total_cost');expect(mock.from).not.toHaveBeenCalled();
+});
 it('saves both uses through one atomic item RPC without sending balances',async()=>{
  mock.rpc.mockResolvedValue({data:{product:{id:'p',codigo_produto:1,nome:'COLA',unidade:'UN',stock_item_id:'s',custo:0,preco_venda:6,ativo:true,componentes:[{stock_item_id:'s',quantidade:1}]},stock:{id:'s',codigo_insumo:2,nome:'COLA',unidade:'UN',saldo:0,ativo:true}},error:null});
  const {data}=await api.post('/itens',{requestId:'request',produto:true,insumo:true,nome:'Cola',unidade:'UN',precoVenda:'6',fornecedoresIds:[],saldo:999});

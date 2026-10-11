@@ -70,7 +70,7 @@ export function supplierToRow(body) {
 
 export const productUnits = ['UN','KG','G','L','ML','M','CX','PCT'];
 export function productFromRow(row) {
- return {_id:row.id,codigoProduto:row.codigo_produto,stockItemId:row.stock_item_id??'',nome:row.nome,codigoBarras:row.codigo_barras??'',categoria:row.categoria??'',unidade:row.unidade,custo:Number(row.custo),precoVenda:Number(row.preco_venda),observacoes:row.observacoes??'',ativo:row.ativo,createdAt:row.created_at,updatedAt:row.updated_at,estoqueSaidaId:row.stock_location_id??'',componentes:row.componentes??[]};
+ return {_id:row.id,codigoProduto:row.codigo_produto,abastecimento:row.supply_mode??'DIRECT',stockItemId:row.stock_item_id??'',nome:row.nome,codigoBarras:row.codigo_barras??'',categoria:row.categoria??'',unidade:row.unidade,custo:Number(row.custo),precoVenda:Number(row.preco_venda),observacoes:row.observacoes??'',ativo:row.ativo,createdAt:row.created_at,updatedAt:row.updated_at,estoqueSaidaId:row.stock_location_id??'',componentes:row.componentes??[]};
 }
 
 export function stockQuantity(value,allowZero=false){
