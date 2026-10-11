@@ -14,7 +14,8 @@ import ResumoContas from './pages/ResumoContas';
 import Relatorios from './pages/Relatorios';
 import RelatorioEstoque from './pages/RelatorioEstoque';
 import Inventario from './pages/Inventario';
-import Mesas from './pages/Mesas';
+import Comandas from './pages/Comandas';
+import Caixa from './pages/Caixa';
 import Login from './pages/Login';
 import ChangePassword from './pages/ChangePassword';
 import Users from './pages/Users';
@@ -44,7 +45,9 @@ export default function App() {
       <Route path="/relatorios" element={<Relatorios/>}/>
       <Route path="/relatorios/financeiro" element={<ResumoContas report/>}/>
       <Route path="/relatorios/estoque" element={<RelatorioEstoque/>}/>
-      <Route path="/mesas" element={<Mesas/>}/>
+      <Route path="/comandas" element={<Comandas/>}/>
+      <Route path="/caixa" element={<Caixa/>}/>
+      <Route path="/mesas" element={<Navigate to="/comandas" replace/>}/>
       <Route element={<ProtectedRoute admin/>}><Route path="/usuarios" element={<Users/>}/></Route>
       </Route>
     </Route>

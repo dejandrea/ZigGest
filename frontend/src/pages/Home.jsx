@@ -8,7 +8,7 @@ const modules = [
   { name:'Clientes', path:'/clientes', icon:'clients', tag:'Cadastros', description:'Consulte e organize os clientes do seu negócio.', action:'Gerenciar clientes' },
   { name:'A receber', path:'/contas', icon:'money', tag:'Financeiro', description:'Registre débitos, créditos e acompanhe os lançamentos.', action:'Ver lançamentos' },
   { name:'Relatórios', path:'/resumo', icon:'report', tag:'Visão geral', description:'Confira os saldos e o resumo das contas dos clientes.', action:'Consultar resumo' },
-  { name:'Mesas', path:'/mesas', icon:'table', tag:'Operação', description:'Organize as mesas, seus itens e o atendimento.', action:'Gerenciar mesas' },
+  { name:'Comandas', path:'/comandas', icon:'table', tag:'Operação', description:'Acompanhe o consumo dos clientes e encerre os pagamentos.', action:'Gerenciar comandas' },
 ];
 export default function Home() {
   const navigate=useNavigate();

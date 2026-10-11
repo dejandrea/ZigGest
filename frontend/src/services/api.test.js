@@ -3,11 +3,31 @@ import api from './api';
 import {nfeXml} from '../testFixtures/nfe';
 import {installmentPlan} from './payables';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
+it('routes cash opening and comanda closing through atomic RPCs',async()=>{
+ await api.post('/caixa',{id:'cash',action:'OPEN',data:{conta_id:'account',categoria_id:'sales',method_ids:['pix']}});
+ expect(mock.rpc).toHaveBeenCalledWith('cash_operation',{p_id:'cash',p_action:'OPEN',p_data:{conta_id:'account',categoria_id:'sales',method_ids:['pix']}});
+ await api.post('/comandas',{id:'tab',action:'CLOSE',data:{request_id:'close',total:80,payments:[{forma_id:'pix',valor:50},{forma_id:'credit',valor:30}]}});
+ expect(mock.rpc).toHaveBeenCalledWith('comanda_operation',expect.objectContaining({p_id:'tab',p_action:'CLOSE'}));
+});
+it('links comandas to their consumption and payments and uses the renamed item route',async()=>{
+ mock.responses=[{data:[{id:'c1',codigo_mesa:1},{id:'c2',codigo_mesa:2}]},{data:[{id:'i1',codigo_mesa:1}]},{data:[{id:'close',comanda_id:'c1'}]},{data:[{id:'pay',closure_id:'close'}]}];
+ const {data}=await api.get('/comandas');expect(data[0].itens).toHaveLength(1);expect(data[0].pagamentos).toHaveLength(1);expect(data[1].pagamentos).toHaveLength(0);
+ mock.responses=[{data:{id:'item',codigo_mesa:1,quantidade:1,valor_unitario:5,total:5}}];
+ await api.post('/comandas/1/itens',{descricao:'Consumo',valorUnitario:5,quantidade:1});
+ expect(mock.queries.at(-1).table).toBe('dining_table_items');
+});
 it('loads inventory lines and sends counts through the inventory RPC',async()=>{
  mock.responses=[{data:[{id:'inventory',descricao:'Inventário'}]},{data:[{id:'line',inventory_id:'inventory',stock_item_id:'item',contado:0}]}];
  const {data}=await api.get('/inventarios');expect(data[0].lines[0].contado).toBe(0);
  await api.post('/inventarios',{id:'inventory',action:'SAVE',revision:0,data:{lines:[{item_id:'item',contado:0}]}});
  expect(mock.rpc).toHaveBeenCalledWith('inventory_operation',{p_id:'inventory',p_action:'SAVE',p_revision:0,p_data:{lines:[{item_id:'item',contado:0}]}});
+});
+it('loads all partial receipts and aggregates quantities paid across settlements',async()=>{
+ mock.responses=[{data:[{id:'c1',codigo_mesa:1,total_geral:80,paid_total:30}]},{data:[{id:'item',codigo_mesa:1,quantidade:8}]},{data:[{id:'s1',comanda_id:'c1',kind:'ITEMS',cash_session_id:'cash',items:[{item_id:'item',quantidade:1}]},{id:'s2',comanda_id:'c1',kind:'ITEMS',cash_session_id:'cash',items:[{item_id:'item',quantidade:2}]}]},{data:[{id:'p1',closure_id:'s1'},{id:'p2',closure_id:'s2'}]}];
+ const {data}=await api.get('/comandas');
+ expect(data[0].lancamentos).toHaveLength(2);expect(data[0].pagamentos).toHaveLength(2);
+ expect(data[0].pagamentos.every(p=>p.cash_session_id==='cash')).toBe(true);
+ expect(data[0].itens[0].quantidade_paga).toBe(3);expect(data[0].encerramento).toBeUndefined();
 });
 vi.mock('./supabase',()=>({supabase:{from:mock.from,rpc:mock.rpc}}));
 it('calculates separate account balances from balanced transfer entries',async()=>{

@@ -5,10 +5,10 @@ import Botao from './Botao';
 import FormModal,{useFormClose} from './FormModal';
 import '../styles/components/Modal.css';
 
-const ModalNovoCliente = ({ onClose, onSuccess }) => {
+const ModalNovoCliente = ({ onClose, onSuccess, initialName='' }) => {
     const {error,busy,run}=useOperation();
   const [form, setForm] = useState({
-    nome: '',
+    nome: initialName,
     apelido: '',
     telefone: '',
     email: '',
@@ -36,8 +36,8 @@ const ModalNovoCliente = ({ onClose, onSuccess }) => {
     };
   
     try {
-      await run(() => api.post('/clientes', cliente));
-      onSuccess();
+      const {data}=await run(() => api.post('/clientes', cliente));
+      onSuccess?.(data);
       onClose();
     } catch (error) {
       console.error('Erro ao cadastrar cliente:', error);

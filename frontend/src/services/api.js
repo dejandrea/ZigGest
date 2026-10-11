@@ -43,6 +43,19 @@ const operations=()=>all('financial_operations','created_at',operationColumns);
 const api = {
   async get(path) {
     const [resource, id, child] = route(path);
+    if(resource==='comandas'&&!id){
+      const [rows,items,closures,payments]=await Promise.all([all('dining_tables','codigo_mesa'),all('dining_table_items','codigo_mesa'),all('comanda_closures','created_at'),all('comanda_payments','closure_id')]);
+      const settlementsByComanda=new Map(),itemsByCode=new Map(),paymentsByClosure=new Map();
+      for(const closure of closures){const group=settlementsByComanda.get(closure.comanda_id)??[];group.push(closure);settlementsByComanda.set(closure.comanda_id,group);}
+      for(const item of items){const group=itemsByCode.get(item.codigo_mesa)??[];group.push(item);itemsByCode.set(item.codigo_mesa,group);}
+      for(const payment of payments){const group=paymentsByClosure.get(payment.closure_id)??[];group.push(payment);paymentsByClosure.set(payment.closure_id,group);}
+      return {data:rows.map(row=>{
+        const settlements=settlementsByComanda.get(row.id)??[],paidQuantities=new Map();
+        for(const settlement of settlements)for(const item of settlement.items??[])paidQuantities.set(item.item_id,(paidQuantities.get(item.item_id)??0)+Number(item.quantidade));
+        return {...row,lancamentos:settlements,encerramento:settlements.find(s=>(s.kind??'CLOSE')==='CLOSE'),itens:(itemsByCode.get(row.codigo_mesa)??[]).map(item=>({...item,quantidade_paga:paidQuantities.get(item.id)??0})),pagamentos:settlements.flatMap(s=>(paymentsByClosure.get(s.id)??[]).map(p=>({...p,cash_session_id:s.cash_session_id})))};
+      })};
+    }
+    if(resource==='caixa')return {data:await all('cash_sessions','opened_at')};
     if(resource==='inventarios'){
       const [rows,lines]=await Promise.all([all('stock_inventories','created_at'),all('stock_inventory_lines','inventory_id')]);
       return {data:rows.map(row=>({...row,lines:lines.filter(line=>line.inventory_id===row.id)}))};
@@ -108,7 +121,7 @@ const api = {
       const filtered = id ? rows.filter(row => row.codigo_conta === code(id)) : rows;
       return { data: filtered.map(row => {const settled=settledAmount(ops,row.entry_type==='DEBIT'?'debito_id':'credito_id',row.id);return {...ledgerFromRow(row,customers),categoriaId:row.categoria_id??'',financeOperationId:row.financial_operation_id,locked:!!row.financial_operation_id||ops.some(o=>o.debito_id===row.id||o.credito_id===row.id),baixado:settled,aberto:Math.max(0,Math.round((Number(row.amount)-settled)*100)/100),saldoCliente:Number(customers.find(c=>c.codigo_cliente===row.customer_codigo)?.total_pendente??0)};}) };
     }
-    if (resource === 'mesas') {
+    if (resource === 'mesas' || resource === 'comandas') {
       if (id && child === 'itens') {
         const rows = await result(client().from('dining_table_items').select('*').eq('codigo_mesa',code(id)).order('created_at'));
         return { data: rows.map(itemFromRow) };
@@ -120,6 +133,8 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='comandas'&&!id)return {data:await result(client().rpc('comanda_operation',{p_id:body.id,p_action:body.action,p_data:body.data??{}}))};
+    if(resource==='caixa')return {data:await result(client().rpc('cash_operation',{p_id:body.id,p_action:body.action,p_data:body.data??{}}))};
     if(resource==='inventarios')return {data:await result(client().rpc('inventory_operation',{p_id:body.id,p_action:body.action,p_revision:body.revision??null,p_data:body.data??{}}))};
     if(resource==='financeiro-config'){
       const allowed={accounts:['nome','tipo','ativo','saldo_inicial','data'],categories:['nome','natureza','ativo'],methods:['nome','tipo','ativo','conta_padrao_id','prazo_dias','max_parcelas','usar_pdv']}[id];
@@ -174,7 +189,7 @@ const api = {
       const row = await result(client().from('dining_tables').insert({ nome_cliente: body.nomeMesa ?? body.nomeCliente ?? '' }).select().single());
       return { data: mesaFromRow(row) };
     }
-    if (resource === 'mesas' && child === 'itens') {
+    if ((resource === 'mesas' || resource === 'comandas') && child === 'itens') {
       const row = await result(client().from('dining_table_items').insert({
         codigo_mesa: code(id), descricao: body.descricao, valor_unitario: Number(body.valorUnitario), quantidade: Number(body.quantidade),
       }).select().single());
@@ -188,7 +203,7 @@ const api = {
     if(resource==='insumos'){
       const changes=stockToRow(body,true);return {data:stockFromRow(await result(client().from('stock_items').update(changes).eq('codigo_insumo',code(id)).select().single()))};
     }
-    if (resource === 'mesas' && child === 'itens') {
+    if ((resource === 'mesas' || resource === 'comandas') && child === 'itens') {
       const row = await result(client().from('dining_table_items').update({ descricao: body.descricao, valor_unitario: Number(body.valorUnitario), quantidade: Number(body.quantidade) }).eq('codigo_mesa',code(id)).eq('id',itemId).select().single());
       return { data: itemFromRow(row) };
     }
@@ -206,7 +221,7 @@ const api = {
       const row = await result(client().from('customer_ledger').update(ledgerToRow(body)).eq('codigo_conta',code(id)).select().single());
       return { data: ledgerFromRow(row) };
     }
-    if (resource === 'mesas') {
+    if (resource === 'mesas' || resource === 'comandas') {
       const changes = {};
       if (body.status) changes.status = body.status;
       if (body.nomeCliente !== undefined) changes.nome_cliente = body.nomeCliente;
@@ -218,7 +233,7 @@ const api = {
   async delete(path) {
     const [resource,id,child,itemId] = route(path);
     const table = resource === 'clientes' ? 'customers' : resource === 'contas' ? 'customer_ledger' : resource === 'mesas' ? 'dining_tables' : null;
-    if (resource === 'mesas' && child === 'itens') {
+    if ((resource === 'mesas' || resource === 'comandas') && child === 'itens') {
       const rows = await result(client().from('dining_table_items').delete().eq('codigo_mesa',code(id)).eq('id',itemId).select('id'));
       if (!rows.length) throw new Error('Item não encontrado ou sem permissão.');
       return { data: null };
