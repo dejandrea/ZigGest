@@ -5,8 +5,8 @@ import '../styles/pages/Home.css';
 import Icon from '../components/Icon';
 
 const modules = [
-  { name:'Clientes', path:'/clientes', icon:'clients', tag:'Cadastros', description:'Consulte e organize os clientes do seu negócio.', action:'Gerenciar clientes' },
-  { name:'A receber', path:'/contas', icon:'money', tag:'Financeiro', description:'Registre débitos, créditos e acompanhe os lançamentos.', action:'Ver lançamentos' },
+  { name:'Caixa', path:'/caixa', icon:'money', tag:'Frente de loja', description:'Abra o caixa e acompanhe as vendas e movimentações.', action:'Gerenciar caixa' },
+  { name:'PDV', path:'/pdv', icon:'money', tag:'Frente de loja', description:'Registre produtos, receba pagamentos e finalize vendas.', action:'Iniciar venda' },
   { name:'Relatórios', path:'/resumo', icon:'report', tag:'Visão geral', description:'Confira os saldos e o resumo das contas dos clientes.', action:'Consultar resumo' },
   { name:'Comandas', path:'/comandas', icon:'table', tag:'Operação', description:'Acompanhe o consumo dos clientes e encerre os pagamentos.', action:'Gerenciar comandas' },
 ];
