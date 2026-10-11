@@ -10,7 +10,8 @@ import '../styles/pages/Fornecedores.css';
 
 const empty={nome:'',nomeFantasia:'',documento:'',inscricaoEstadual:'',contato:'',telefone:'',email:'',endereco:'',observacoes:'',ativo:true};
 const fields=[['nome','Nome / razão social'],['nomeFantasia','Nome fantasia'],['documento','CPF / CNPJ'],['inscricaoEstadual','Inscrição estadual (IE)'],['contato','Pessoa de contato'],['telefone','Telefone'],['email','E-mail'],['endereco','Endereço']];
-export default function SupplierForm({supplier,initialValues={},onClose,onSuccess}){
+export default function SupplierForm({supplier,initialValues={},onClose,onSuccess,kind='supplier'}){
+ const recipient=kind==='recipient',noun=recipient?'destinatário':'fornecedor',resource=recipient?'/destinatarios':'/fornecedores',titleId=recipient?'recipient-title':'supplier-title';
  const [initial,setInitial]=useState(()=>Object.fromEntries(Object.keys(empty).map(k=>[k,supplier?.[k]??initialValues[k]??empty[k]])));
  const [form,setForm]=useState(initial);
  const {busy,error,run}=useOperation();
@@ -43,22 +44,22 @@ export default function SupplierForm({supplier,initialValues={},onClose,onSucces
   const body={...form,nome:form.nome.trim()};
   if(!body.nome)return;
   try{
-   const {data}=await run(()=>supplier?api.put('/fornecedores/'+supplier.codigoFornecedor,body):api.post('/fornecedores',body));
+   const {data}=await run(()=>supplier?api.put(resource+'/'+(recipient?supplier.codigoDestinatario:supplier.codigoFornecedor),body):api.post(resource,body));
    if(keepOpen){setForm({...empty});setInitial({...empty});focusRegistration({currentTarget:target});}
-   onSuccess(supplier?'Fornecedor atualizado com sucesso.':'Fornecedor cadastrado com sucesso.',data,keepOpen);
+   onSuccess((recipient?'Destinatário':'Fornecedor')+(supplier?' atualizado com sucesso.':' cadastrado com sucesso.'),data,keepOpen);
   }catch{/* useOperation mantém a mensagem e os dados do formulário */}
  }
- return <FormModal labelledBy="supplier-title" onClose={close} dirty={dirty} busy={busy}>
+ return <FormModal labelledBy={titleId} onClose={close} dirty={dirty} busy={busy}>
   <div className="users-editor supplier-editor">
-   <div className="users-editor-heading"><div><p className="home-eyebrow">CADASTROS</p><h2 id="supplier-title">{supplier?'Editar fornecedor':'Novo fornecedor'}</h2></div><button type="button" className="users-edit" onClick={close} disabled={busy} aria-label="Fechar formulário">×</button></div>
-   <p className="users-editor-intro">Dados de identificação e contato. O nome é obrigatório.</p>
+   <div className="users-editor-heading"><div><p className="home-eyebrow">CADASTROS</p><h2 id={titleId}>{(supplier?'Editar ':'Novo ')+noun}</h2></div><button type="button" className="users-edit" onClick={close} disabled={busy} aria-label="Fechar formulário">×</button></div>
+   <p className="users-editor-intro">{recipient?'Identifique o estabelecimento que recebe as notas. Nome e CPF / CNPJ são obrigatórios.':'Dados de identificação e contato. O nome é obrigatório.'}</p>
    {error&&<p className="users-message users-error" role="alert">{error}</p>}
    <form onSubmit={save}><fieldset disabled={busy} className="supplier-fields">
-    {fields.map(([key,label])=><label key={key}>{label}{['documento','telefone'].includes(key)?<ContactInput kind={key==='documento'?'document':'phone'} name={key} value={form[key]} onChange={e=>change(key,e.target.value)} onBlur={key==='documento'?()=>consult():undefined}/>:<input name={key} value={form[key]} onChange={e=>change(key,e.target.value)} type={key==='email'?'email':'text'} required={key==='nome'} maxLength={key==='nome'?200:key==='inscricaoEstadual'?50:500} autoFocus={key==='nome'}/>}</label>)}
+    {fields.map(([key,label])=><label key={key}>{label}{['documento','telefone'].includes(key)?<ContactInput kind={key==='documento'?'document':'phone'} required={recipient&&key==='documento'} name={key} value={form[key]} onChange={e=>change(key,e.target.value)} onBlur={key==='documento'?()=>consult():undefined}/>:<input name={key} value={form[key]} onChange={e=>change(key,e.target.value)} type={key==='email'?'email':'text'} required={key==='nome'} maxLength={key==='nome'?200:key==='inscricaoEstadual'?50:500} autoFocus={key==='nome'}/>}</label>)}
     <div className="supplier-wide"><button type="button" className="users-secondary" disabled={looking} onClick={()=>consult(true)}>{looking?'Consultando…':'Consultar CNPJ'}</button>{lookupNotice&&<p role="status" className="supplier-note">{lookupNotice}</p>}<p className="supplier-note">Consulta disponível para CNPJ numérico. Dados não encontrados podem ser preenchidos manualmente; CPF permanece manual.</p></div>
     <label className="supplier-wide">Observações<textarea name="observacoes" value={form.observacoes} onChange={e=>setForm({...form,observacoes:e.target.value})} maxLength={2000} rows={3}/></label>
     <label className="supplier-wide">Situação<select value={String(form.ativo)} onChange={e=>setForm({...form,ativo:e.target.value==='true'})}><option value="true">Ativo</option><option value="false">Inativo</option></select></label>
-    <div className="users-form-actions supplier-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button type="submit" className="users-primary">{busy?'Salvando…':'Salvar fornecedor'}</button><SaveAndContinue editing={!!supplier}/></div>
+    <div className="users-form-actions supplier-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button type="submit" className="users-primary">{busy?'Salvando…':'Salvar '+noun}</button><SaveAndContinue editing={!!supplier}/></div>
    </fieldset></form>
   </div>
  </FormModal>;

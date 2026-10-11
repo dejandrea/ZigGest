@@ -6,7 +6,7 @@ import ManualInvoiceEntryForm from './ManualInvoiceEntryForm';
 import FormModal from './FormModal';
 import '../styles/pages/InvoiceEntry.css';
 const number=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:4});
-const money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:6});
 export default function InvoiceDetails({id,onClose,items=[],onSuccess=()=>{}}){
  const [invoice,setInvoice]=useState(null),[error,setError]=useState(''),[editing,setEditing]=useState(false);
  useEffect(()=>{let active=true;api.get('/entradas-nfe/'+id).then(({data})=>{if(active)setInvoice(data);}).catch(cause=>{if(active)setError(cause.message);});return()=>{active=false;};},[id]);

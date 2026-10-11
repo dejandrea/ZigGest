@@ -1,3 +1,4 @@
+import {decimalMoney} from './decimalMoney';
 export function customerFromRow(row) {
   return {
     _id: row.id, codigoCliente: row.codigo_cliente, nome: row.nome,
@@ -37,7 +38,7 @@ export function ledgerToRow(body) {
     result.entry_type = body.tipo === 'credito' ? 'CREDIT' : 'DEBIT';
   }
   if (body.valor !== undefined) {
-    result.amount = Number(body.valor);
+    result.amount = decimalMoney(body.valor);
     if (!Number.isFinite(result.amount) || result.amount < 0) throw new Error('Valor inválido.');
   }
   if (body.dataLancamento) result.issue_at = body.dataLancamento;
@@ -117,7 +118,8 @@ export function productToRow(body) {
   if(body[field]===undefined)continue;
   const text=String(body[field]).trim().replace(',','.');
   const number=Number(text);
-  if(!/^\d+(\.\d{1,2})?$/.test(text)||!Number.isFinite(number)||number>9999999999.99)throw new Error(label+' inválido. Use um valor positivo ou zero, com até duas casas decimais.');
+  const precision=field==='custo'?6:2;
+  if(!new RegExp('^\\d+(\\.\\d{1,'+precision+'})?$').test(text)||!Number.isFinite(number)||number>9999999999.99)throw new Error(label+' inválido. Use um valor positivo ou zero, com até '+precision+' casas decimais.');
   row[column]=number;
  }
  if(body.ativo!==undefined)row.ativo=boolean(body.ativo);

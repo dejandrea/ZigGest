@@ -7,16 +7,17 @@ import {ledgerSummary,accountDate} from './Contas';
 import '../styles/pages/Users.css';
 import '../styles/pages/Contas.css';
 import '../styles/pages/ResumoContas.css';
-const money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:6});
+import {moneyUnits,moneyText} from '../services/decimalMoney';
 export function summarizeCustomers(customers,entries){
-  const groups=new Map(customers.map(c=>[Number(c.codigoCliente),{...c,debit:0,credit:0,count:0}]));
+  const groups=new Map(customers.map(c=>[Number(c.codigoCliente),{...c,debit:0n,credit:0n,count:0}]));
   for(const entry of entries){
     const code=Number(entry.codigoCliente);
-    if(!groups.has(code))groups.set(code,{codigoCliente:code,nome:entry.clienteNome||'Cliente não encontrado',debit:0,credit:0,count:0});
+    if(!groups.has(code))groups.set(code,{codigoCliente:code,nome:entry.clienteNome||'Cliente não encontrado',debit:0n,credit:0n,count:0});
     const group=groups.get(code);
-    group[entry.tipo==='credito'?'credit':'debit']+=Math.round(Number(entry.valor)*100);group.count++;
+    group[entry.tipo==='credito'?'credit':'debit']+=moneyUnits(entry.valor);group.count++;
   }
-  return [...groups.values()].map(g=>({...g,debit:g.debit/100,credit:g.credit/100,balance:(g.debit-g.credit)/100})).sort((a,b)=>b.balance-a.balance||a.nome.localeCompare(b.nome,'pt-BR'));
+  return [...groups.values()].map(g=>({...g,debit:Number(moneyText(g.debit)),credit:Number(moneyText(g.credit)),balance:Number(moneyText(g.debit-g.credit))})).sort((a,b)=>b.balance-a.balance||a.nome.localeCompare(b.nome,'pt-BR'));
 }
 export default function ResumoContas({report=false}){
   const [section,setSection]=useState('receivables');

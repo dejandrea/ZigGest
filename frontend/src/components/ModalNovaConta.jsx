@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import useOperation from '../hooks/useOperation';
 import api from '../services/api.js';
 import '../styles/components/Modal.css';
-import { formatarMoedaDigitada, formatarMoedaBanco, desformatarMoeda } from '../utils/formatacao.js';
+
 import Botao from './Botao';
 
 const ModalNovaConta = ({ onClose, onSuccess }) => {
@@ -39,7 +39,7 @@ const ModalNovaConta = ({ onClose, onSuccess }) => {
 
     const handleValorChange = (e) => {
         const valorDigitado = e.target.value;
-        const valorFormatado = formatarMoedaDigitada(valorDigitado);
+        const valorFormatado = valorDigitado;
         setValor(valorFormatado);
     };
 
@@ -53,7 +53,7 @@ const ModalNovaConta = ({ onClose, onSuccess }) => {
         if (!tipo) return alert("Selecione o tipo da conta (crédito ou débito)");
 
         const vencimentoFinal = vencimento || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-        const valorNumerico = parseFloat(valor.replace(/\D/g, '')) / 100;
+        const valorNumerico = valor;
 
         const novaConta = {
             codigoCliente: clienteSelecionado.codigoCliente,
@@ -119,7 +119,7 @@ const ModalNovaConta = ({ onClose, onSuccess }) => {
 
                     <label>Valor:</label>
                     <input
-                        type="text"
+                        type="number" min="0.000001" step="0.000001"
                         placeholder="Valor"
                         value={valor}
                         onChange={handleValorChange}

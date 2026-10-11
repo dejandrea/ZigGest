@@ -1,14 +1,14 @@
-const precision={quantity:3,price:4,money:2};
+const precision={quantity:3,price:6,money:6};
 function scaled(value,kind){
  const text=String(value).trim().replace(',','.'),digits=precision[kind];
  if(!new RegExp('^\\d+(\\.\\d{1,'+digits+'})?$').test(text))throw new Error('Confira quantidades e valores da cotação.');
  const [integer,fraction='']=text.split('.');return BigInt(integer)*10n**BigInt(digits)+BigInt(fraction.padEnd(digits,'0'));
 }
 export function lineCents(quantity,price){
- const value=(scaled(quantity,'quantity')*scaled(price,'price')+50000n)/100000n;
- if(value>999999999999n)throw new Error('O valor da compra ultrapassa o limite permitido.');return Number(value);
+ const value=(scaled(quantity,'quantity')*scaled(price,'price')+500n)/1000n;
+ if(value>9999999999990000n)throw new Error('O valor da compra ultrapassa o limite permitido.');return Number(value)/10000;
 }
-function moneyCents(value){const n=scaled(value,'money');if(n>999999999999n)throw new Error('Valor fora do limite.');return Number(n);}
+function moneyCents(value){const n=scaled(value,'money');if(n>9999999999990000n)throw new Error('Valor fora do limite.');return Number(n)/10000;}
 export function suggestedQuantity(item){
  const step=['UN','CX','PCT'].includes(item.unidade)?1:0.001;
  return Number((Math.ceil((Number(item.estoqueMinimo)-Number(item.saldo))/step)*step+step).toFixed(3));

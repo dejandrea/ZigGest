@@ -9,7 +9,7 @@ it('requires account, payment method and exact cents for settlements',()=>{
  const base={tipo:'PAYMENT',valor:'10.25',data:today(),descricao:'Pagamento',contaId:'cash',formaId:'pix',parcelaId:'p'};
  expect(financePayload(base)).toMatchObject({valor:10.25,conta_id:'cash',forma_id:'pix',parcela_id:'p'});
  expect(()=>financePayload({...base,formaId:''})).toThrow('forma');
- expect(()=>financePayload({...base,valor:'10.255'})).toThrow('casas');
+ expect(()=>financePayload({...base,valor:'10.2550001'})).toThrow('casas');
  expect(()=>financePayload({...base,data:'2999-01-01'})).toThrow('data');
 });
 it('keeps transfer and credit allocation separate from cash receipt',()=>{

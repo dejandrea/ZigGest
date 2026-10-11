@@ -9,7 +9,7 @@ import '../styles/pages/Users.css';
 import '../styles/pages/Produtos.css';
 
 const empty={nome:'',codigoBarras:'',categoria:'',unidade:'UN',custo:'0',precoVenda:'0',observacoes:'',ativo:true,componentes:[],estoqueSaidaId:''};
-const money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:6});
 function ProductForm({product,onClose,onSuccess}){
  const stocks=useStocks();
  const [initial]=useState(()=>({...empty,...Object.fromEntries(Object.keys(empty).filter(k=>product?.[k]!==undefined).map(k=>[k,product[k]]))}));
@@ -39,7 +39,7 @@ function ProductForm({product,onClose,onSuccess}){
     <small id="product-barcode-help" className="product-wide">Informe o código exatamente como está na embalagem, incluindo zeros à esquerda.</small>
     <label>Categoria<input value={form.categoria} onChange={e=>change('categoria',e.target.value)} maxLength={100}/></label>
     <label>Unidade<select value={form.unidade} onChange={e=>change('unidade',e.target.value)}>{productUnits.map(u=><option key={u} value={u}>{u}</option>)}</select></label>
-    <label>Custo (R$)<input type="number" min="0" max="9999999999.99" step="0.01" required value={form.custo} onChange={e=>change('custo',e.target.value)}/></label>
+    <label>Custo (R$)<input type="number" min="0" max="9999999999.99" step="0.000001" required value={form.custo} onChange={e=>change('custo',e.target.value)}/></label>
     <label>Preço de venda (R$)<input type="number" min="0" max="9999999999.99" step="0.01" required value={form.precoVenda} onChange={e=>change('precoVenda',e.target.value)}/></label>
     <label className="product-wide">Estoque de saída<select value={stocks.locations.some(l=>l.principal&&l.id===form.estoqueSaidaId)?'':form.estoqueSaidaId} onChange={e=>change('estoqueSaidaId',e.target.value)}><option value="">Principal (padrão)</option>{stocks.locations.filter(l=>!l.principal&&(l.ativo||l.id===form.estoqueSaidaId)).map(l=><option key={l.id} value={l.id} disabled={!l.ativo}>{l.nome}{l.ativo?'':' (inativo)'}</option>)}</select></label><small className="product-wide">PDV e comandas darão baixa nos insumos deste setor.</small>
     <section className="product-wide product-composition" aria-label="Composição de estoque">

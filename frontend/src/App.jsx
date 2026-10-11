@@ -7,6 +7,8 @@ import Clientes from './pages/Clientes';
 import Fornecedores from './pages/Fornecedores';
 import Itens from './pages/Itens';
 import Producao from './pages/Producao';
+import Destinatarios from './pages/Destinatarios';
+import EntradasDestinatarios from './pages/EntradasDestinatarios';
 import Insumos from './pages/Insumos';
 import MovimentacoesEstoque from './pages/MovimentacoesEstoque';
 import ContasPagar from './pages/ContasPagar';
@@ -36,6 +38,7 @@ export default function App() {
       <Route path="/" element={<Home/>}/>
       <Route path="/clientes" element={<Clientes/>}/>
       <Route path="/fornecedores" element={<Fornecedores/>}/>
+      <Route path="/destinatarios" element={<Destinatarios/>}/>
       <Route path="/itens" element={<Itens/>}/>
       <Route path="/produtos" element={<Navigate to="/itens" replace/>}/>
       <Route path="/insumos" element={<Navigate to="/itens" replace/>}/>
@@ -52,6 +55,7 @@ export default function App() {
       <Route path="/relatorios/financeiro" element={<ResumoContas report/>}/>
       <Route path="/relatorios/estoque" element={<RelatorioEstoque/>}/>
       <Route path="/relatorios/producao" element={<Producao report/>}/>
+      <Route path="/relatorios/entradas-destinatarios" element={<EntradasDestinatarios/>}/>
       <Route path="/relatorios/logs" element={<ReportComingSoon title="Registros de operações" description="Histórico de ações, responsáveis e alterações no sistema."/>}/>
       <Route path="/relatorios/vendas-notas" element={<ReportComingSoon title="Vendas e notas fiscais" description="Vendas com nota fiscal gerada e sem nota fiscal gerada."/>}/>
       <Route path="/comandas" element={<Comandas/>}/>

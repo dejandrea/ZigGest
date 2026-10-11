@@ -3,7 +3,8 @@ import {Link} from 'react-router-dom';
 import useReportData from '../hooks/useReportData';
 import {accountTypes,money,today} from '../services/finance';
 
-const sum=(rows,key)=>rows.reduce((total,row)=>total+Math.round(Number(row[key]??0)*100),0)/100;
+import {sumMoney} from '../services/decimalMoney';
+const sum=(rows,key)=>sumMoney(rows.map(row=>row[key]??0));
 export default function AccountSummary({kind}){
  const banks=kind==='banks';
  const {data,loading,error,refresh}=useReportData(banks?'/financeiro':'/contas-pagar');

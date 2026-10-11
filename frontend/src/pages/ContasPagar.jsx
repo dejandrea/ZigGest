@@ -6,7 +6,7 @@ import PayableForm from '../components/PayableForm';
 import '../styles/pages/Users.css';
 import '../styles/pages/Produtos.css';
 import '../styles/pages/InvoiceEntry.css';
-const money=value=>Number(value).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const money=value=>Number(value).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:6});
 export default function ContasPagar(){
  const [settlement,setSettlement]=useState(null);
  const [params,setParams]=useSearchParams(),sourceId=params.get('entrada');

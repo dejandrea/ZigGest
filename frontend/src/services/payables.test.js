@@ -10,8 +10,8 @@ it('splits cents exactly and handles short months without drifting',()=>{
 });
 it('rejects impossible dates, zero installments and fractional cents',()=>{
  expect(validDate('2026-02-30')).toBe(false);
- expect(()=>installmentPlan('0.01',2,'2026-01-01')).toThrow();
- expect(()=>installmentPlan('1.001',1,'2026-01-01')).toThrow();
+ expect(()=>installmentPlan('0.000001',2,'2026-01-01')).toThrow();
+ expect(()=>installmentPlan('1.0010001',1,'2026-01-01')).toThrow();
  expect(()=>installmentPlan('10',121,'2026-01-01')).toThrow();
 });
 it('requires the edited installments to match the edited total',()=>{

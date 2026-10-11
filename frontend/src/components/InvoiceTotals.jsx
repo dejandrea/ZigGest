@@ -4,10 +4,10 @@ export default function InvoiceTotals({total,items,onChange,readOnly=false,adjus
  const totals=invoiceTotals(total,items,adjustments);
  return <section className="product-wide invoice-section invoice-totals" aria-labelledby="invoice-totals-title">
   <h3 id="invoice-totals-title">Conferência dos valores</h3>
-  <div className="invoice-adjustments-grid">{invoiceAdjustmentFields.map(([key,label])=><label key={key}>{label}<input type="number" min="0" step="0.01" value={adjustments[key]??'0'} readOnly={readOnly} onChange={e=>onAdjustmentChange?.(key,e.target.value)}/></label>)}</div>
+  <div className="invoice-adjustments-grid">{invoiceAdjustmentFields.map(([key,label])=><label key={key}>{label}<input type="number" min="0" step="0.000001" value={adjustments[key]??'0'} readOnly={readOnly} onChange={e=>onAdjustmentChange?.(key,e.target.value)}/></label>)}</div>
   <p className="invoice-reconciliation">Itens + frete + impostos + acréscimos − descontos. Informe em impostos apenas os valores adicionados ao total; tributos já incluídos no preço não devem ser somados novamente.</p>
   <div className="invoice-totals-grid">
-   <label>Valor total da nota<input type="number" required min="0" step="0.01" value={total} readOnly={readOnly} onChange={e=>onChange?.(e.target.value)}/></label>
+   <label>Valor total da nota<input type="number" required min="0" step="0.000001" value={total} readOnly={readOnly} onChange={e=>onChange?.(e.target.value)}/></label>
    <label>Soma dos itens lançados<input type="number" readOnly value={totals.sum} placeholder="—"/></label>
    <label>Total calculado com ajustes<input type="number" readOnly value={totals.calculated} placeholder="—"/></label>
    <label>Diferença (nota − total calculado)<input type="number" readOnly value={totals.difference} placeholder="—"/></label>

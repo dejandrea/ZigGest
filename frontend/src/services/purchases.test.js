@@ -18,7 +18,7 @@ it('excludes expired/inactive suppliers and exposes missing coverage',()=>{
  expect(r.bestTotal).toBeUndefined();expect(r.completeSplit).toBe(false);expect(r.perItem[1].best).toBeUndefined();
 });
 it('rounds each line exactly with fractional quantities and four decimal unit prices',()=>{
- expect(lineCents('1.005','1')).toBe(101);expect(lineCents('0.125','3.9999')).toBe(50);
+ expect(lineCents('1.005','1')).toBe(100.5);expect(lineCents('0.125','3.9999')).toBe(49.9988);
  expect(()=>lineCents('10','9999999999')).toThrow('limite');
 });
 it('replenishes above the minimum using the base unit and covers negative stock',()=>{

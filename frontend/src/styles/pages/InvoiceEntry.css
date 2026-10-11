@@ -56,3 +56,4 @@ dialog.form-modal:has(.invoice-editor){width:min(1140px,calc(100% - 32px));max-w
  .invoice-item-footer{align-items:flex-start;flex-direction:column}
  .invoice-section-heading{flex-wrap:wrap}
 }
+.invoice-party-picker{display:grid;grid-template-columns:1fr 2fr;gap:12px;margin:12px 0}.invoice-party-picker label{min-width:0}.invoice-party-picker input,.invoice-party-picker select{width:100%}@media(max-width:700px){.invoice-party-picker{grid-template-columns:1fr}}

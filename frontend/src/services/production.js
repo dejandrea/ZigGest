@@ -1,4 +1,5 @@
 import {stockQuantity} from './dataMapping';
+import {decimalMoney,multiplyMoney,sumMoney} from './decimalMoney';
 export function productionPayload(body){
  const data=body.data??{};
  if(body.action==='RECIPE')return {nome:String(data.nome??'').trim(),ativo:data.ativo!==false,observacoes:data.observacoes??'',
@@ -10,9 +11,10 @@ export function productionPayload(body){
  if(body.action==='REVERSE')return {motivo:data.motivo??''};
  throw new Error('Operação de produção inválida.');
 }
-function amount(value){const n=Number(String(value).replace(',','.'));if(!Number.isFinite(n)||n<0||n>9999999999.99||Math.round(n*100)/100!==n)throw new Error('Custo inválido. Use até duas casas decimais.');return n;}
+function amount(value){const n=decimalMoney(value);if(n>9999999999.99)throw new Error('Custo fora do limite.');return n;}
 export const productionQuantity=value=>Number(value).toLocaleString('pt-BR',{maximumFractionDigits:3});
 export function productionPreview(recipe,factor=1){
+ let cost=null;try{cost=sumMoney(recipe.inputs.map(line=>multiplyMoney((Number(line.quantidade)*Number(factor)).toFixed(6),line.custo_unitario??0)));}catch{/* Incomplete quantities are validated before saving. */}
  return {inputs:recipe.inputs.map(line=>({...line,quantidade:Number(line.quantidade)*Number(factor)})),outputs:recipe.outputs.map(line=>({...line,quantidade:Number(line.quantidade)*Number(factor)})),
-  cost:recipe.inputs.reduce((total,line)=>total+Math.round(Number(line.quantidade)*Number(factor)*Number(line.custo_unitario??0)*100)/100,0)};
+  cost};
 }

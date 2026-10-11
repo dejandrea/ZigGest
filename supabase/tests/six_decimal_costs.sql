@@ -1,0 +1,33 @@
+begin;
+do $$begin perform set_config('request.jwt.claim.sub',(select id::text from auth.users where lower(email)='dejandrea@gmail.com'),true);end $$;
+set local role authenticated;
+do $$
+declare item jsonb;goods jsonb;note uuid:=gen_random_uuid();payable uuid:=gen_random_uuid();bank uuid:=gen_random_uuid();part uuid;method uuid;payment uuid:=gen_random_uuid();h jsonb;lines jsonb;recipe uuid:=gen_random_uuid();batch jsonb;customer integer;debit uuid;
+begin
+ item:=public.save_registered_item(gen_random_uuid(),null,null,'{"produto":true,"insumo":true,"product":{"nome":"Precision fixture","unidade":"UN","custo":1.123456,"preco_venda":2.34},"stock":{},"components":[],"suppliers":[]}');
+ if (select custo from public.products where id=(item->'product'->>'id')::uuid)<>1.123456 or (select preco_venda from public.products where id=(item->'product'->>'id')::uuid)<>2.34 then raise exception 'Item precision lost';end if;
+ h:=jsonb_build_object('numero',(100000000+floor(random()*800000000))::integer::text,'serie','99','emitente_nome','Precision supplier','emitente_documento','12345678000195','emitida_em','2026-01-01T12:00:00Z','total',3.370369,'frete',0.000002,'descontos',0.000001);
+ lines:=jsonb_build_array(jsonb_build_object('n_item',1,'descricao','Precision item','unidade','UN','quantidade_nf',3,'valor_unitario',1.123456,'valor_total',3.370368,'stock_item_id',item->'stock'->>'id','quantidade',3,'fator',1));
+ perform public.record_manual_stock_invoice(note,h,lines);
+ if (select total from public.stock_invoices where id=note)<>3.370369 or (select valor_unitario from public.stock_invoice_items where invoice_id=note)<>1.123456 then raise exception 'Invoice precision lost';end if;
+ perform public.save_supplier_payable(payable,note,jsonb_build_object('fornecedor_nome','Precision supplier','descricao','Precision purchase','total',3.370369,'parcelas',jsonb_build_array(jsonb_build_object('numero',1,'vencimento','2026-12-01','valor',1.685185),jsonb_build_object('numero',2,'vencimento','2026-12-02','valor',1.685184))));
+ perform public.finance_config('accounts',bank,'{"nome":"Precision bank","tipo":"BANK","ativo":true,"saldo_inicial":100.123456,"data":"2026-01-01"}');
+ select id into method from public.financial_payment_methods where ativo and tipo='PIX' limit 1;
+ select id into part from public.supplier_payable_installments where payable_id=payable and numero=1;
+ perform public.finance_operation(payment,jsonb_build_object('tipo','PAYMENT','valor',0.000001,'data','2026-01-02','descricao','Precision partial payment','conta_id',bank,'forma_id',method,'parcela_id',part));
+ if (select sum(valor) from public.financial_entries where conta_id=bank)<>100.123455 then raise exception 'Partial payment precision lost';end if;
+ perform public.edit_stock_invoice(note,(select revision from public.stock_invoices where id=note),gen_random_uuid(),h||'{"total":3.370370}',jsonb_set(lines,'{0,valor_total}','3.370369'));
+ if (select sum(valor) from public.supplier_payable_installments where payable_id=payable)<>3.370370 or (select total from public.supplier_payables where id=payable)<>3.370370 then raise exception 'Edited installment sum lost precision';end if;
+ if (select saldo from public.stock_items where id=(item->'stock'->>'id')::uuid)<>3 then raise exception 'Cost edit changed quantity';end if;
+ perform public.record_stock_entry(gen_random_uuid(),(item->'stock'->>'id')::uuid,1,1,'Precise manual entry',null,null,0.000001);
+ goods:=public.save_registered_item(gen_random_uuid(),null,null,'{"produto":true,"insumo":true,"supply_mode":"PRODUCTION","product":{"nome":"Precision produced goods","unidade":"UN","preco_venda":2.34},"stock":{},"components":[],"suppliers":[]}');
+ perform public.production_operation(gen_random_uuid(),recipe,'RECIPE',null,jsonb_build_object('nome','Precision recipe','inputs',jsonb_build_array(jsonb_build_object('item_id',item->'stock'->>'id','quantidade',1,'custo_unitario',0.123456)),'outputs',jsonb_build_array(jsonb_build_object('product_id',goods->'product'->>'id','quantidade',1))));
+ batch:=public.production_operation(gen_random_uuid(),gen_random_uuid(),'PRODUCE',0,jsonb_build_object('recipe_id',recipe,'multiplier',1,'extra_cost',0.000001,'outputs',jsonb_build_array(jsonb_build_object('product_id',goods->'product'->>'id','quantidade',1))));
+ if (batch->>'total_cost')::numeric<>0.123457 then raise exception 'Production cost lost precision';end if;
+ insert into public.customers(nome) values('Precision customer') returning codigo_cliente into customer;
+ insert into public.customer_ledger(customer_codigo,entry_type,amount) values(customer,'DEBIT',0.123456) returning id into debit;
+ if (select total_pendente from public.customers where codigo_cliente=customer)<>0.123456 then raise exception 'Receivable precision lost';end if;
+ begin update public.products set custo=0.1234567 where id=(item->'product'->>'id')::uuid;raise exception 'FAIL seventh cost decimal';exception when check_violation then null;end;
+ begin perform public.finance_operation(gen_random_uuid(),jsonb_build_object('tipo','PAYMENT','valor',0.0000001,'data','2026-01-02','descricao','Invalid precision','conta_id',bank,'forma_id',method,'parcela_id',part));raise exception 'FAIL seventh finance decimal';exception when raise_exception then if SQLERRM like 'FAIL%' then raise;end if;end;
+end $$;
+rollback;

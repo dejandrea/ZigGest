@@ -1,7 +1,8 @@
 import ContactInput from './ContactInput';
 import React,{useEffect,useRef,useState} from 'react';
 import api from '../services/api';
-import {cents,installmentPlan,paymentMethods} from '../services/payables';
+import {sumMoney} from '../services/decimalMoney';
+import {installmentPlan,paymentMethods} from '../services/payables';
 import useOperation from '../hooks/useOperation';
 import FormModal,{useFormClose} from './FormModal';
 import SupplierForm from './SupplierForm';
@@ -18,7 +19,7 @@ export default function PayableForm({initialValues={},suppliers=[],onClose,onSuc
  function supplierChanged(id){const s=available.find(s=>s._id===id);setForm(prev=>({...prev,fornecedorId:id,fornecedorNome:s?.nome??prev.fornecedorNome,fornecedorDocumento:s?.documento??prev.fornecedorDocumento}));}
  function generate(){try{const plan=installmentPlan(form.total,count,firstDate);change('parcelas',plan.map(p=>({...p,formaPagamento:form.parcelas[0]?.formaPagamento??''})));setError('');}catch(e){setError(e.message);}}
  function lineChanged(index,key,value){setForm(prev=>({...prev,parcelas:prev.parcelas.map((p,i)=>i===index?{...p,[key]:value}:p)}));}
- let sum='—';try{sum=(form.parcelas.reduce((s,p)=>s+cents(p.valor),0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}catch{/* Campos ainda incompletos. */}
+ let sum='—';try{sum=sumMoney(form.parcelas.map(p=>p.valor)).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:6});}catch{/* Campos ainda incompletos. */}
  async function save(event){event.preventDefault();try{
   const serialized=JSON.stringify(form);if(request.current.payload!==serialized)request.current={payload:serialized,id:crypto.randomUUID()};
   await run(()=>initial.id?api.put('/contas-pagar/'+initial.id,form):api.post('/contas-pagar',{...form,requestId:request.current.id}));
@@ -37,7 +38,7 @@ export default function PayableForm({initialValues={},suppliers=[],onClose,onSuc
    <label className="product-wide">Descrição<input required maxLength={200} value={form.descricao} onChange={e=>change('descricao',e.target.value)}/></label>
    {categoryError&&<p className="product-wide" role="status">{categoryError}</p>}
    <label className="product-wide">Categoria de despesa (opcional)<select value={form.categoriaId??''} onChange={e=>change('categoriaId',e.target.value)}><option value="">Sem categoria</option>{categories.filter(c=>c.ativo&&['EXPENSE','BOTH'].includes(c.natureza)).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></label>
-   <label>Valor total<input required type="number" min="0.01" step="0.01" value={form.total} onChange={e=>change('total',e.target.value)}/></label>
+   <label>Valor total<input required type="number" min="0.000001" step="0.000001" value={form.total} onChange={e=>change('total',e.target.value)}/></label>
    <label>Número de parcelas<input type="number" min="1" max="120" step="1" value={count} onChange={e=>setCount(e.target.value)}/></label>
    <label>Primeiro vencimento<input type="date" value={firstDate} onChange={e=>setFirstDate(e.target.value)}/></label>
    <button type="button" className="users-secondary" onClick={generate}>Gerar parcelas mensais</button>
@@ -45,7 +46,7 @@ export default function PayableForm({initialValues={},suppliers=[],onClose,onSuc
    <div className="product-wide invoice-items">{form.parcelas.map((p,i)=><section className="invoice-item" key={i}><h3>Parcela {i+1} de {form.parcelas.length}</h3><div className="invoice-line-fields">
     <label>Referência da parcela {i+1}<input maxLength={50} value={p.numero} onChange={e=>lineChanged(i,'numero',e.target.value)}/></label>
     <label>Vencimento da parcela {i+1}<input required type="date" value={p.vencimento} onChange={e=>lineChanged(i,'vencimento',e.target.value)}/></label>
-    <label>Valor da parcela {i+1}<input required type="number" min="0.01" step="0.01" value={p.valor} onChange={e=>lineChanged(i,'valor',e.target.value)}/></label>
+    <label>Valor da parcela {i+1}<input required type="number" min="0.000001" step="0.000001" value={p.valor} onChange={e=>lineChanged(i,'valor',e.target.value)}/></label>
     <label>Forma de pagamento da parcela {i+1}<input list="payable-methods" maxLength={100} value={p.formaPagamento} onChange={e=>lineChanged(i,'formaPagamento',e.target.value)}/></label>
    </div></section>)}</div><datalist id="payable-methods">{Object.values(paymentMethods).filter(v=>v!=='Sem pagamento').map(v=><option key={v} value={v}/>)}</datalist>
    <p className="product-wide inventory-preview">Soma das parcelas: {sum}</p>

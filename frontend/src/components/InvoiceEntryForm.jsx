@@ -1,5 +1,9 @@
 import {formatDocument} from '../utils/contactMasks';
 import React,{useRef,useState} from 'react';
+import useInvoiceParties from '../hooks/useInvoiceParties';
+import InvoicePartyPicker from './InvoicePartyPicker';
+import RecipientForm from './RecipientForm';
+import {matchInvoiceParty} from '../services/recipients';
 import InvoiceTotals from './InvoiceTotals';
 import {invoiceTotals} from '../services/invoiceTotals';
 import api from '../services/api';
@@ -14,6 +18,7 @@ import '../styles/pages/InvoiceEntry.css';
 const number=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:4});
 const money=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 export default function InvoiceEntryForm({items,onClose,onSuccess}){
+ const parties=useInvoiceParties(),[creatingRecipient,setCreatingRecipient]=useState(false);
  const [document,setDocument]=useState(null),[lines,setLines]=useState([]),[arrival,setArrival]=useState(''),[notes,setNotes]=useState(''),[key,setKey]=useState(''),[copied,setCopied]=useState(false);
  const {busy,error,run,setError}=useOperation(),request=useRef({}),importSequence=useRef(0);
  const dirty=!!document||!!key||!!notes,close=useFormClose(onClose,dirty,busy);
@@ -64,10 +69,11 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
  const invoice=document?.invoice;
  const [mode,setMode]=useState('xml');
  if(mode==='manual')return <ManualInvoiceEntryForm items={active} onItemCreated={item=>setCreatedItems(prev=>[...prev.filter(i=>i._id!==item._id),item])} onXml={()=>setMode('xml')} onClose={(message,entry)=>{if(message)onSuccess(message,entry);else onClose();}}/>;
- return <><FormModal labelledBy="invoice-title" dirty={dirty} busy={busy||newItemLine!==null||creatingSupplier} onClose={close}><div className="users-editor product-editor invoice-editor">
+ return <><FormModal labelledBy="invoice-title" dirty={dirty} busy={busy||newItemLine!==null||creatingSupplier||creatingRecipient} onClose={close}><div className="users-editor product-editor invoice-editor">
   <div className="users-editor-heading"><h2 id="invoice-title">Entrada por NF-e</h2><button type="button" aria-label="Fechar formulário" disabled={busy} onClick={close}>×</button></div>
   <p className="users-editor-intro">Importe o XML completo, vincule os produtos aos insumos e confira as quantidades antes de registrar.</p>
   {error&&<p role="alert" className="users-message users-error">{error}</p>}
+  {parties.errors.length>0&&<p role="alert" className="users-message users-error">{parties.errors.join(' ')} <button type="button" onClick={parties.refresh}>Tentar carregar cadastros</button></p>}
   <form onSubmit={save}><fieldset disabled={busy} className="product-fields">
    <label className="product-wide">Forma de entrada<select value="xml" onChange={()=>{if(!dirty||window.confirm('Descartar os dados desta entrada para digitar a nota manualmente?'))setMode('manual');}}><option value="xml">Importar XML</option><option value="manual">Digitar nota manualmente</option></select></label>
    <section className="product-wide invoice-source" aria-label="Obter XML da nota">
@@ -80,8 +86,8 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
    {invoice&&<>
     <div className="product-wide"><button type="button" className="users-secondary" onClick={openSupplier}>Cadastrar fornecedor da NF-e</button>{supplierNotice&&<p role="status" className="users-message users-success">{supplierNotice}</p>}</div>
     <section className="product-wide invoice-section" aria-label="Dados da NF-e"><h3>NF-e {invoice.number} / Série {invoice.series}</h3><div className="invoice-header-grid"><label>Número da nota<input readOnly value={invoice.number}/></label><label>Série<input readOnly value={invoice.series}/></label><label className="invoice-span-2">Data de emissão<input readOnly value={new Date(invoice.issuedAt).toLocaleString('pt-BR')}/></label></div></section>
-    <section className="product-wide invoice-section"><h3>Fornecedor / emitente</h3><div className="invoice-party-grid"><label>CPF / CNPJ do fornecedor<input readOnly value={formatDocument(invoice.issuerDocument)}/></label><label>Nome / razão social do fornecedor<input readOnly value={invoice.issuerName}/></label></div></section>
-    <section className="product-wide invoice-section"><h3>Destinatário</h3><div className="invoice-party-grid"><label>CPF / CNPJ do destinatário<input readOnly value={formatDocument(invoice.recipientDocument)}/></label><label>Nome / razão social do destinatário<input readOnly value={invoice.recipientName}/></label></div></section>
+    <section className="product-wide invoice-section"><h3>Fornecedor / emitente</h3>{!parties.loading&&<InvoicePartyPicker rows={parties.suppliers} document={invoice.issuerDocument} label="Fornecedor" readOnly/>}<div className="invoice-party-grid"><label>CPF / CNPJ do fornecedor<input readOnly value={formatDocument(invoice.issuerDocument)}/></label><label>Nome / razão social do fornecedor<input readOnly value={invoice.issuerName}/></label></div></section>
+    <section className="product-wide invoice-section"><div className="invoice-section-heading"><h3>Destinatário</h3><button type="button" className="users-secondary" disabled={!!matchInvoiceParty(parties.recipients,invoice.recipientDocument)||!invoice.recipientDocument} onClick={()=>setCreatingRecipient(true)}>Cadastrar destinatário da NF-e</button></div>{!parties.loading&&<InvoicePartyPicker rows={parties.recipients} document={invoice.recipientDocument} label="Destinatário" readOnly/>}<div className="invoice-party-grid"><label>CPF / CNPJ do destinatário<input readOnly value={formatDocument(invoice.recipientDocument)}/></label><label>Nome / razão social do destinatário<input readOnly value={invoice.recipientName}/></label></div></section>
     <div className="product-wide invoice-section-heading"><h3>Produtos / insumos</h3></div><div className="product-wide invoice-items">{invoice.items.map((item,index)=>{
      const line=lines[index],stock=active.find(i=>i._id===line.stockItemId),total=Number(line.quantity)*Number(line.factor);
      return <section key={item.line} className="invoice-item" aria-label={'Item '+item.line+' da nota'}><h3>{item.line}. {item.name}</h3><p className="inventory-code">Código {item.code} · NCM {item.ncm} · CFOP {item.cfop}</p><div className="invoice-fiscal-grid">{[['Quantidade na nota',number.format(Number(item.quantity))],['Unidade na nota',item.unit],['Valor unitário',money.format(Number(item.unitPrice))],['Valor total',money.format(Number(item.total))]].map(([label,value])=><label key={label}>{label}<input aria-label={label+' do item '+item.line} readOnly value={value}/></label>)}</div>
@@ -101,6 +107,7 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
   </fieldset></form>
  </div></FormModal>
  {newItemLine!==null&&<StockItemForm initialValues={{nome:invoice.items[newItemLine].name}} onClose={()=>setNewItemLine(null)} onSuccess={itemCreated}/>}
- {creatingSupplier&&<SupplierForm initialValues={invoice.supplier} onClose={()=>setCreatingSupplier(false)} onSuccess={(_message,supplier,keepOpen)=>{if(!keepOpen)setCreatingSupplier(false);setSupplierNotice('Fornecedor cadastrado: '+supplier.nome);}}/>}
+ {creatingSupplier&&<SupplierForm initialValues={invoice.supplier} onClose={()=>setCreatingSupplier(false)} onSuccess={(_message,supplier,keepOpen)=>{parties.supplierSaved(supplier);if(!keepOpen)setCreatingSupplier(false);setSupplierNotice('Fornecedor cadastrado: '+supplier.nome);}}/>}
+ {creatingRecipient&&<RecipientForm initialValues={invoice.recipient??{nome:invoice.recipientName,documento:invoice.recipientDocument}} onClose={()=>setCreatingRecipient(false)} onSuccess={(_message,recipient,keepOpen)=>{parties.recipientSaved(recipient);if(!keepOpen)setCreatingRecipient(false);}}/>}
  </>;
 }

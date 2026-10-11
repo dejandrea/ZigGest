@@ -13,6 +13,13 @@ async function upload(xml=nfeXml()){
  fireEvent.change(screen.getByLabelText('Arquivo XML da NF-e'),{target:{files:[file]}});
  await screen.findByText('NF-e 1 / Série 1');
 }
+it('recognizes saved parties by document while preserving the original XML names',async()=>{
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/fornecedores'?[{_id:'s',nome:'Nome do cadastro',documento:'12.345.678/0001-95',ativo:true}]:[]}));
+ render(<InvoiceEntryForm items={[item]} onClose={vi.fn()} onSuccess={vi.fn()}/>);await upload();
+ expect(await screen.findByText('Fornecedor reconhecido: Nome do cadastro')).toBeInTheDocument();
+ expect(screen.getByLabelText('Nome / razão social do fornecedor')).toHaveValue('Fornecedor & Bebidas');
+ expect(screen.getByLabelText('Nome / razão social do fornecedor')).toHaveAttribute('readonly');
+});
 it('does not import stock when the final confirmation is declined',async()=>{
  window.confirm.mockReturnValue(false);
  render(<InvoiceEntryForm items={[item]} onClose={vi.fn()} onSuccess={vi.fn()}/>);

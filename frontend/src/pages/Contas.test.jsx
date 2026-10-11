@@ -35,11 +35,11 @@ describe('receivables screen',()=>{
   fireEvent.change(screen.getByLabelText('Cliente'),{target:{value:'7'}});
   // The list filter and editor both use a type label; address the editor by its id.
   fireEvent.change(document.getElementById('account-type'),{target:{value:'credito'}});
-  fireEvent.change(screen.getByLabelText('Valor'),{target:{value:'12345'}});
+  fireEvent.change(screen.getByLabelText('Valor'),{target:{value:'123.456789'}});
   fireEvent.change(screen.getByLabelText('Data de vencimento'),{target:{value:'2026-10-20'}});
   fireEvent.change(screen.getByLabelText('Observações'),{target:{value:'Fixture notes'}});
   fireEvent.click(screen.getByRole('button',{name:'Salvar lançamento'}));
-  await waitFor(()=>expect(mock.post).toHaveBeenCalledWith('/contas',{codigoCliente:7,tipo:'credito',valor:123.45,observacoes:'Fixture notes',dataVencimento:'2026-10-20'}));
+  await waitFor(()=>expect(mock.post).toHaveBeenCalledWith('/contas',{codigoCliente:7,tipo:'credito',valor:123.456789,observacoes:'Fixture notes',dataVencimento:'2026-10-20'}));
  });
  it('does not describe a failed load as an empty database',async()=>{
   mock.get.mockRejectedValue(new Error('Fixture failure'));open();

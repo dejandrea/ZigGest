@@ -5,7 +5,7 @@ import useOperation from '../hooks/useOperation';
 import {useAuth} from '../auth/AuthContext';
 import CashActionForm from '../components/CashActionForm';
 import {money} from '../services/finance';
-import {cents} from '../services/payables';
+import {decimalMoney,sumMoney,subtractMoney} from '../services/decimalMoney';
 import '../styles/pages/Users.css';
 import '../styles/pages/Produtos.css';
 import '../styles/pages/Comandas.css';
@@ -30,14 +30,14 @@ export default function Caixa(){
  const reversed=new Set(data.finance.operations.map(o=>o.estorno_de).filter(Boolean));
  const payments=data.comandas.flatMap(c=>c.pagamentos.map(p=>({...p,voided:c.sale_voided,cash_session_id:p.cash_session_id??c.encerramento?.cash_session_id}))).filter(p=>!!view&&p.cash_session_id===view.id);
  const validPayments=payments.filter(p=>!p.voided&&(!p.operation_id||!reversed.has(p.operation_id)));
- const total=rows=>rows.reduce((sum,row)=>sum+Math.round(Number(row.valor)*100),0)/100;
- const difference=Number(counted)-Number(closingExpected);
+ const total=rows=>sumMoney(rows.map(row=>row.valor));
+ let difference=0;try{difference=counted?subtractMoney(counted,closingExpected):0;}catch{difference=NaN;}
  async function start(event){event.preventDefault();try{
-  await run(()=>api.post('/caixa',{id:request,action:'OPEN',data:{conta_id:account,categoria_id:category,valor_abertura:cents(opening)/100,origem_id:origin||null}}));
+  await run(()=>api.post('/caixa',{id:request,action:'OPEN',data:{conta_id:account,categoria_id:category,valor_abertura:decimalMoney(opening),origem_id:origin||null}}));
   setRequest(crypto.randomUUID());setSelected('');setNotice('Caixa aberto. Todas as formas de pagamento ativas estão disponíveis.');await load();
  }catch{/* Preserve opening form. */}}
  async function finish(event){event.preventDefault();try{
-  await run(()=>api.post('/caixa',{id:current.id,action:'CLOSE',data:{contado:cents(counted)/100,esperado:closingExpected,motivo:closingReason.trim()}}));
+  await run(()=>api.post('/caixa',{id:current.id,action:'CLOSE',data:{contado:decimalMoney(counted),esperado:closingExpected,motivo:closingReason.trim()}}));
   setReview(false);setNotice('Caixa fechado. A conferência e o histórico foram registrados.');await load();
  }catch{/* Preserve conference. */}}
  async function invoice(sale,value){try{await run(()=>api.post('/caixa-vendas',{id:sale.id,action:'INVOICE',data:{request_id:crypto.randomUUID(),nota_fiscal:value}}));await load();}catch{/* Keep persisted checkbox. */}}
@@ -57,11 +57,11 @@ export default function Caixa(){
     <p className="product-note">Todas as formas de pagamento ativas estão habilitadas. Apenas recebimentos em dinheiro compõem o valor físico do caixa.</p>
     <div className="users-form-actions"><button className="users-secondary" disabled={busy||!!editor||review} onClick={()=>setEditor({action:'WITHDRAW'})}>Sangria</button><button className="users-secondary" disabled={busy||!!editor||review} onClick={()=>setEditor({action:'SUPPLY'})}>Suprimento</button><Link className="users-secondary" to="/comandas">Ver comandas</Link><button className="users-primary" disabled={busy||open.length>0||!!editor||review} onClick={()=>{setClosingExpected(Number(current.expected_cash));setCounted('');setClosingReason('');setReview(true);}}>Fechar caixa</button></div>
     {open.length>0&&<p role="status" className="product-note">Encerre todas as comandas para fechar o caixa.</p>}
-    {review&&<section className="users-editor product-editor"><h2>Conferência do fechamento</h2><p>Dinheiro esperado: {money(closingExpected)}</p><form onSubmit={finish}><fieldset className="product-fields" disabled={busy}><label>Dinheiro contado<input required type="number" min="0" step="0.01" value={counted} onChange={e=>setCounted(e.target.value)}/></label><p className="product-note">Diferença: {counted&&Number.isFinite(difference)?money(difference):'—'}</p><label className="product-wide">Justificativa da diferença<textarea required={!!counted&&difference!==0} minLength={difference!==0?3:undefined} maxLength={2000} value={closingReason} onChange={e=>setClosingReason(e.target.value)}/></label><div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={()=>setReview(false)}>Voltar</button><button className="users-primary">Confirmar fechamento</button></div></fieldset></form></section>}
+    {review&&<section className="users-editor product-editor"><h2>Conferência do fechamento</h2><p>Dinheiro esperado: {money(closingExpected)}</p><form onSubmit={finish}><fieldset className="product-fields" disabled={busy}><label>Dinheiro contado<input required type="number" min="0" step="0.000001" value={counted} onChange={e=>setCounted(e.target.value)}/></label><p className="product-note">Diferença: {counted&&Number.isFinite(difference)?money(difference):'—'}</p><label className="product-wide">Justificativa da diferença<textarea required={!!counted&&difference!==0} minLength={difference!==0?3:undefined} maxLength={2000} value={closingReason} onChange={e=>setClosingReason(e.target.value)}/></label><div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={()=>setReview(false)}>Voltar</button><button className="users-primary">Confirmar fechamento</button></div></fieldset></form></section>}
    </section>:<section className="users-editor product-editor"><h2>Abrir caixa</h2><p className="product-note">Informe o dinheiro disponível para troco. Use o saldo já registrado na conta do caixa ou transfira o valor de outra conta. A abertura não registra receita de venda.</p><form onSubmit={start}><fieldset className="product-fields" disabled={busy}>
     <label>Conta financeira do caixa<input readOnly value={defaultAccount?defaultAccount.nome+' · saldo '+money(defaultAccount.saldo):'Conta caixa indisponível'}/></label>
     <label>Categoria das receitas<select required value={category} onChange={e=>setCategory(e.target.value)}><option value="">Selecione</option>{data.finance.categories.filter(c=>c.ativo&&['INCOME','BOTH'].includes(c.natureza)).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></label>
-    <label>Valor de abertura<input required type="number" min="0" step="0.01" value={opening} onChange={e=>setOpening(e.target.value)}/></label><label>Origem do troco<select value={origin} onChange={e=>setOrigin(e.target.value)}><option value="">Já está na conta do caixa</option>{data.finance.accounts.filter(a=>a.ativo&&a.id!==account).map(a=><option key={a.id} value={a.id}>{a.nome} · {money(a.saldo)}</option>)}</select></label>
+    <label>Valor de abertura<input required type="number" min="0" step="0.000001" value={opening} onChange={e=>setOpening(e.target.value)}/></label><label>Origem do troco<select value={origin} onChange={e=>setOrigin(e.target.value)}><option value="">Já está na conta do caixa</option>{data.finance.accounts.filter(a=>a.ativo&&a.id!==account).map(a=><option key={a.id} value={a.id}>{a.nome} · {money(a.saldo)}</option>)}</select></label>
     <div className="product-wide"><h3>Formas de pagamento</h3><p className="product-note">Todas as formas ativas estão disponíveis automaticamente: {activeMethods.map(m=>m.nome).join(', ')||'nenhuma forma ativa cadastrada'}.</p></div><button className="users-primary" disabled={!activeMethods.length||!account}>Abrir caixa</button>
    </fieldset></form></section>}
    {!!data.sessions.length&&<section className="cash-history"><div className="users-toolbar"><label>Consultar caixa<select value={view?.id??''} onChange={e=>setSelected(e.target.value)}>{data.sessions.map(s=><option key={s.id} value={s.id}>{date(s.opened_at)} · {s.status==='OPEN'?'Aberto':'Fechado'}</option>)}</select></label></div>

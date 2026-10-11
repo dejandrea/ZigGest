@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import useOperation from '../hooks/useOperation';
 import api from '../services/api.js';
 import '../styles/components/Modal.css';
-import { formatarMoedaDigitada, formatarMoedaBanco, desformatarMoeda } from '../utils/formatacao.js';
+
 import Botao from './Botao';
 
 const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
@@ -34,7 +34,7 @@ const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
                 codigoCliente: conta.codigoCliente
             });
             setFiltro(conta.clienteNome);  // Preenchendo o filtro com o nome do cliente
-            setValor(formatarMoedaBanco(conta.valor));
+            setValor(String(conta.valor));
             setVencimento(conta.dataVencimento?.slice(0, 10));
             setTipo(conta.tipo);
             setObservacoes(conta.observacoes || '');
@@ -54,7 +54,7 @@ const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
 
     const handleValorChange = (e) => {
         const valorDigitado = e.target.value;
-        const valorFormatado = formatarMoedaDigitada(valorDigitado);
+        const valorFormatado = valorDigitado;
         setValor(valorFormatado);
     };
 
@@ -66,7 +66,7 @@ const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
         if (!tipo) return alert("Selecione o tipo da conta");
 
         // const valorNumerico = parseFloat(valor.replace(/\D/g, '')) / 100;
-        const valorNumerico = desformatarMoeda(valor);
+        const valorNumerico = valor;
 
 
         const contaAtualizada = {
@@ -141,7 +141,7 @@ const ModalEditarConta = ({ conta, onClose, onSuccess }) => {
 
                     <label>Valor:</label>
                     <input
-                        type="text"
+                        type="number" min="0.000001" step="0.000001"
                         placeholder="Valor"
                         value={valor}
                         onChange={handleValorChange}

@@ -1,9 +1,11 @@
 import { supabase } from './supabase';
 import {catalogue,registrationPayload,registrationResult} from './catalog';
 import {productionPayload} from './production';
+import {recipientFromRow,recipientToRow} from './recipients';
 import {parseNfe} from './nfe';
 import {manualInvoicePayload} from './manualInvoice';
-import {cents,paymentMethods,payablePayload,payableFromRow} from './payables';
+import {decimalMoney,sumMoney,subtractMoney} from './decimalMoney';
+import {paymentMethods,payablePayload,payableFromRow} from './payables';
 import {financePayload,settledAmount} from './finance';
 import { stockFromRow,stockToRow,stockQuantity,componentsToRows,productFromRow, productToRow, supplierFromRow, supplierToRow, customerFromRow, customerToRow, ledgerFromRow, ledgerToRow, mesaFromRow, itemFromRow } from './dataMapping';
 
@@ -45,6 +47,12 @@ const operations=()=>all('financial_operations','created_at',operationColumns);
 const api = {
   async get(path) {
     const [resource, id, child] = route(path);
+    if(resource==='destinatarios')return {data:(await all('invoice_recipients','codigo_destinatario')).map(recipientFromRow)};
+    if(resource==='entradas-destinatarios'){
+      const [invoices,movements,recipients]=await Promise.all([all('stock_invoices','emitida_em','id,numero,serie,emitente_nome,emitente_documento,destinatario_nome,destinatario_documento,recipient_id,emitida_em,total,origem,created_at'),all('stock_movements','created_at','id,tipo,invoice_id,ocorrido_em'),api.get('/destinatarios')]);
+      const dates=new Map(movements.filter(row=>row.invoice_id&&row.tipo==='ENTRADA').map(row=>[row.invoice_id,row.ocorrido_em]));
+      return {data:{recipients:recipients.data,invoices:invoices.map(row=>({...row,data_entrada:dates.get(row.id)??row.emitida_em}))}};
+    }
     if(resource==='producao'){
       const [recipes,batches]=await Promise.all([all('production_recipes','numero'),all('production_batches','numero','id,numero,recipe_id,recipe_nome,recipe_revision,location_id,multiplier,status,inputs,outputs,extra_cost,total_cost,observacoes,ocorrido_em,actor_id,actor_nome,movement_id,reverse_reason,created_at,reversed_at')]);
       return {data:{recipes,batches}};
@@ -77,11 +85,11 @@ const api = {
     }
     if(resource==='financeiro'){
       const [accounts,categories,methods,ops,entries]=await Promise.all([all('financial_accounts','nome'),all('financial_categories','nome'),all('financial_payment_methods','nome'),operations(),all('financial_entries','operation_id')]);
-      return {data:{accounts:accounts.map(a=>({...a,saldo:entries.filter(e=>e.conta_id===a.id).reduce((sum,e)=>sum+Math.round(Number(e.valor)*100),0)/100})),categories,methods,operations:ops,entries}};
+      return {data:{accounts:accounts.map(a=>({...a,saldo:sumMoney(entries.filter(e=>e.conta_id===a.id).map(e=>e.valor))})),categories,methods,operations:ops,entries}};
     }
     if(resource==='contas-pagar'){
       const [rows,lines,ops]=await Promise.all([all('supplier_payables','created_at','id,stock_movement_id,fornecedor_id,fornecedor_nome,fornecedor_documento,descricao,total,observacoes,created_at,categoria_id'),all('supplier_payable_installments','payable_id'),operations()]);
-      return {data:rows.map(r=>{const account=payableFromRow(r,lines);return {...account,locked:ops.some(o=>account.parcelas.some(p=>p.id===o.parcela_id)),parcelas:account.parcelas.map(p=>{const pago=settledAmount(ops,'parcela_id',p.id);return {...p,pago,aberto:Math.max(0,Math.round((Number(p.valor)-pago)*100)/100)};})};})};
+      return {data:rows.map(r=>{const account=payableFromRow(r,lines);return {...account,locked:ops.some(o=>account.parcelas.some(p=>p.id===o.parcela_id)),parcelas:account.parcelas.map(p=>{const pago=settledAmount(ops,'parcela_id',p.id);return {...p,pago,aberto:Math.max(0,subtractMoney(p.valor,pago))};})};})};
     }
     if(resource==='financeiro-entrada'&&id){
       const movement=await result(client().from('stock_movements').select('id,tipo,descricao,invoice_id,fornecedor_id,total_entrada,observacoes').eq('id',id).single());
@@ -142,7 +150,7 @@ const api = {
     if (resource === 'contas') {
       const [rows, customers,ops] = await Promise.all([all('customer_ledger','codigo_conta'), all('customers','codigo_cliente'),operations()]);
       const filtered = id ? rows.filter(row => row.codigo_conta === code(id)) : rows;
-      return { data: filtered.map(row => {const settled=settledAmount(ops,row.entry_type==='DEBIT'?'debito_id':'credito_id',row.id);return {...ledgerFromRow(row,customers),categoriaId:row.categoria_id??'',financeOperationId:row.financial_operation_id,locked:!!row.financial_operation_id||ops.some(o=>o.debito_id===row.id||o.credito_id===row.id),baixado:settled,aberto:Math.max(0,Math.round((Number(row.amount)-settled)*100)/100),saldoCliente:Number(customers.find(c=>c.codigo_cliente===row.customer_codigo)?.total_pendente??0)};}) };
+      return { data: filtered.map(row => {const settled=settledAmount(ops,row.entry_type==='DEBIT'?'debito_id':'credito_id',row.id);return {...ledgerFromRow(row,customers),categoriaId:row.categoria_id??'',financeOperationId:row.financial_operation_id,locked:!!row.financial_operation_id||ops.some(o=>o.debito_id===row.id||o.credito_id===row.id),baixado:settled,aberto:Math.max(0,subtractMoney(row.amount,settled)),saldoCliente:Number(customers.find(c=>c.codigo_cliente===row.customer_codigo)?.total_pendente??0)};}) };
     }
     if (resource === 'mesas' || resource === 'comandas') {
       if (id && child === 'itens') {
@@ -156,6 +164,7 @@ const api = {
   },
   async post(path, body) {
     const [resource,id,child] = route(path);
+    if(resource==='destinatarios')return {data:recipientFromRow(await result(client().from('invoice_recipients').insert(recipientToRow(body)).select().single()))};
     if(resource==='producao')return {data:await result(client().rpc('production_operation',{p_request:body.requestId,p_id:body.id,p_action:body.action,p_revision:body.revision??null,p_data:productionPayload(body)}))};
     if(resource==='itens')return {data:registrationResult(await result(client().rpc('save_registered_item',registrationPayload(body))))};
     if(resource==='compras')return {data:await result(client().rpc('purchase_operation',{p_id:body.id,p_action:body.action,p_revision:body.revision??null,p_data:body.data??{}}))};
@@ -198,7 +207,7 @@ const api = {
       const date=body.dataEntrada?new Date(body.dataEntrada):null;
       if(date&&(!Number.isFinite(date.getTime())||date.getTime()>Date.now()))throw new Error('Informe uma data passada ou atual.');
       if(date&&body.tipo!=='ENTRADA')throw new Error('Data retroativa somente para entradas.');
-      if(body.tipo==='ENTRADA'&&(body.fornecedorId!==undefined||body.totalEntrada!==undefined))return {data:await result(client().rpc('record_stock_entry',{p_request:body.requestId,p_item:body.itemId,p_quantidade:qty,p_fator:factor,p_observacoes:body.observacoes??'',p_ocorrido_em:date?.toISOString()??null,p_supplier:body.fornecedorId||null,p_total:body.totalEntrada===''||body.totalEntrada==null?null:cents(body.totalEntrada)/100}))};
+      if(body.tipo==='ENTRADA'&&(body.fornecedorId!==undefined||body.totalEntrada!==undefined))return {data:await result(client().rpc('record_stock_entry',{p_request:body.requestId,p_item:body.itemId,p_quantidade:qty,p_fator:factor,p_observacoes:body.observacoes??'',p_ocorrido_em:date?.toISOString()??null,p_supplier:body.fornecedorId||null,p_total:body.totalEntrada===''||body.totalEntrada==null?null:decimalMoney(body.totalEntrada)}))};
       return {data:await result(client().rpc('record_stock_movement',{...(date?{p_ocorrido_em:date.toISOString()}:{}),p_request:body.requestId,p_tipo:body.tipo,p_item:body.tipo==='ENTRADA'?body.itemId:null,p_produto:body.tipo==='SAIDA'?code(body.codigoProduto):null,p_quantidade:qty,p_fator:factor,p_observacoes:body.observacoes??''}))};
     }
     if (resource === 'produtos') {
@@ -229,6 +238,7 @@ const api = {
   },
   async put(path, body) {
     const [resource,id,child,itemId] = route(path);
+    if(resource==='destinatarios')return {data:recipientFromRow(await result(client().from('invoice_recipients').update(recipientToRow(body)).eq('codigo_destinatario',code(id)).select().single()))};
     if(resource==='entradas-nfe')return {data:await result(client().rpc('edit_stock_invoice',{...manualInvoicePayload(body,{editing:true}),p_id:id,p_revision:body.revision}))};
     if(resource==='contas-pagar')return {data:await result(client().rpc('save_supplier_payable',{p_id:id,p_source:body.sourceId||null,p_data:payablePayload(body),p_edit:true}))};
     if(resource==='insumos'){

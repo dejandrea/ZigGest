@@ -6,11 +6,12 @@ import FinancialOperationForm from '../components/FinancialOperationForm';
 import AccountEditor from '../components/AccountEditor';
 import '../styles/pages/Users.css';
 import '../styles/pages/Contas.css';
-const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const currency=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:6});
+import {sumMoney,subtractMoney} from '../services/decimalMoney';
 export function ledgerSummary(rows){
-  const debit=Math.round(rows.filter(r=>r.tipo==='debito').reduce((n,r)=>n+Math.round(Number(r.valor)*100),0));
-  const credit=Math.round(rows.filter(r=>r.tipo==='credito').reduce((n,r)=>n+Math.round(Number(r.valor)*100),0));
-  return {debit:debit/100,credit:credit/100,balance:(debit-credit)/100};
+  const debit=sumMoney(rows.filter(r=>r.tipo==='debito').map(r=>r.valor));
+  const credit=sumMoney(rows.filter(r=>r.tipo==='credito').map(r=>r.valor));
+  return {debit,credit,balance:subtractMoney(debit,credit)};
 }
 export function accountDate(value){
   if(!value)return '—';
