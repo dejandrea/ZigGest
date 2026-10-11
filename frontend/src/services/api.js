@@ -99,7 +99,8 @@ const api = {
     if(resource==='entradas-nfe'&&id){
       const invoice=await result(client().from('stock_invoices').select('*').eq('id',id).single());
       const items=await result(client().from('stock_invoice_items').select('*').eq('invoice_id',id).order('n_item'));
-      return {data:{...invoice,itens:items}};
+      const movement=await result(client().from('stock_movements').select('id,ocorrido_em,observacoes').eq('invoice_id',id).single());
+      return {data:{...invoice,itens:items,movement}};
     }
     if(resource==='estoques'){
       const [locations,balances]=await Promise.all([all('stock_locations','nome'),all('stock_balances','stock_item_id','*','location_id')]);
@@ -216,6 +217,7 @@ const api = {
   },
   async put(path, body) {
     const [resource,id,child,itemId] = route(path);
+    if(resource==='entradas-nfe')return {data:await result(client().rpc('edit_stock_invoice',{...manualInvoicePayload(body,{editing:true}),p_id:id,p_revision:body.revision}))};
     if(resource==='contas-pagar')return {data:await result(client().rpc('save_supplier_payable',{p_id:id,p_source:body.sourceId||null,p_data:payablePayload(body),p_edit:true}))};
     if(resource==='insumos'){
       if(body.fornecedoresIds!==undefined)return {data:stockFromRow(await result(client().rpc('save_purchase_item',{p_codigo:code(id),p_data:stockToRow(body,true),p_suppliers:body.fornecedoresIds})))};

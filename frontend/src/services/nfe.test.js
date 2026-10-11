@@ -2,6 +2,10 @@ import {describe,it,expect} from 'vitest';
 import {parseNfe,validInvoiceKey,readNfeFile,MAX_NFE_BYTES} from './nfe';
 import {nfeXml,makeKey} from '../testFixtures/nfe';
 describe('NF-e XML import',()=>{
+ it('extracts adjustments without double counting taxes included in item prices',()=>{
+  const xml=nfeXml().replace('<vNF>96.00</vNF>','<vFrete>10.00</vFrete><vDesc>3.00</vDesc><vIPI>4.00</vIPI><vOutro>2.00</vOutro><vICMS>20.00</vICMS><vTotTrib>25.00</vTotTrib><vNF>109.00</vNF>');
+  expect(parseNfe(xml).adjustments).toEqual({frete:'10.00',descontos:'3.00',impostos:'4.00',acrescimos:'2.00'});
+ });
  it('extracts complete invoice metadata and preserves original decimal quantities',()=>{
   const invoice=parseNfe(nfeXml());
   expect(invoice).toMatchObject({key:makeKey(),number:'1',issuerName:'Fornecedor & Bebidas',recipientDocument:'98765432000100',total:'96.00'});

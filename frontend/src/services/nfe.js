@@ -1,3 +1,4 @@
+import {invoiceTotals} from './invoiceTotals';
 const NS='http://www.portalfiscal.inf.br/nfe';
 export const MAX_NFE_BYTES=2*1024*1024;
 export const NFE_PORTAL='https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx';
@@ -34,7 +35,11 @@ export function parseNfe(xml){
  const supplier={nome:text(issuer,'xNome'),nomeFantasia:text(issuer,'xFant'),documento:text(issuer,'CNPJ')||text(issuer,'CPF'),telefone:text(address,'fone'),email:text(issuer,'email'),endereco:[text(address,'xLgr'),text(address,'nro'),text(address,'xCpl'),text(address,'xBairro'),[text(address,'xMun'),text(address,'UF')].filter(Boolean).join(' / '),text(address,'CEP')?'CEP '+text(address,'CEP'):'',text(address,'xPais')].filter(Boolean).join(', '),observacoes:text(issuer,'IE')?'Inscrição estadual: '+text(issuer,'IE'):''};
  const duplicates=Array.from(child(info,'cobr')?.children??[]).filter(e=>e.localName==='dup'&&e.namespaceURI===NS).map(e=>({numero:text(e,'nDup'),vencimento:text(e,'dVenc'),valor:text(e,'vDup')}));
  const payments=Array.from(child(info,'pag')?.children??[]).filter(e=>e.localName==='detPag'&&e.namespaceURI===NS).map(e=>({code:text(e,'tPag'),description:text(e,'xPag'),amount:text(e,'vPag'),indicator:text(e,'indPag'),date:text(e,'dPag')}));
- return {key,number:text(info,'ide/nNF'),series:text(info,'ide/serie'),issuedAt,issuerName:supplier.nome,issuerDocument:supplier.documento,supplier,recipientName:text(info,'dest/xNome'),recipientDocument:text(info,'dest/CNPJ')||text(info,'dest/CPF'),total:decimal(text(info,'total/ICMSTot/vNF'),'Total da nota'),items,duplicates,payments};
+ const sumValues=values=>{const value=invoiceTotals('0',values.map(total=>({total:decimal(total||'0','Ajuste')}))).sum;if(!value)throw new Error('Ajustes monetários inválidos no XML.');return value;};
+ const sumTags=paths=>sumValues(paths.map(path=>text(info,path)));
+ const extraTaxes=Array.from(info.children).filter(e=>e.localName==='det').flatMap(det=>['PISST','COFINSST'].map(name=>{const tax=child(child(det,'imposto'),name);return text(tax,name==='PISST'?'indSomaPISST':'indSomaCOFINSST')==='1'?text(tax,name==='PISST'?'vPIS':'vCOFINS'):'0';}));
+ const adjustments={frete:sumTags(['total/ICMSTot/vFrete']),descontos:sumTags(['total/ICMSTot/vDesc','total/ICMSTot/vICMSDeson']),impostos:sumValues([sumTags(['total/ICMSTot/vST','total/ICMSTot/vFCPST','total/ICMSTot/vII','total/ICMSTot/vIPI','total/ICMSTot/vIPIDevol','total/ICMSTot/vICMSMonoReten']),...extraTaxes]),acrescimos:sumTags(['total/ICMSTot/vSeg','total/ICMSTot/vOutro','total/ISSQNtot/vServ'])};
+ return {key,number:text(info,'ide/nNF'),series:text(info,'ide/serie'),issuedAt,issuerName:supplier.nome,issuerDocument:supplier.documento,supplier,recipientName:text(info,'dest/xNome'),recipientDocument:text(info,'dest/CNPJ')||text(info,'dest/CPF'),total:decimal(text(info,'total/ICMSTot/vNF'),'Total da nota'),adjustments,items,duplicates,payments};
 }
 export async function readNfeFile(file){
  if(!file||file.size>MAX_NFE_BYTES)throw new Error('Selecione um XML de até 2 MB.');

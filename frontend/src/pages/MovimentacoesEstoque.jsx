@@ -27,7 +27,7 @@ export default function MovimentacoesEstoque(){
   {transfer&&<StockTransfer locations={stocks.locations} balances={stocks.balances} items={data.items} onClose={()=>setTransfer(false)} onSuccess={saved}/>}
   {financeEntry&&<EntryFinancePrompt sourceId={financeEntry} onClose={()=>setFinanceEntry(null)}/>}
   {invoiceEntry&&<InvoiceEntryForm items={data.items} onClose={()=>setInvoiceEntry(false)} onSuccess={saved}/>}
-  {invoiceId&&<InvoiceDetails id={invoiceId} onClose={()=>setInvoiceId(null)}/>}
+  {invoiceId&&<InvoiceDetails items={data.items} onSuccess={message=>{setNotice(message);stocks.refresh();load();}} id={invoiceId} onClose={()=>setInvoiceId(null)}/>}
   {creating&&<StockMovementForm items={data.items} products={data.products} onClose={()=>setCreating(false)} onSuccess={saved}/>}
  </div>;
 }

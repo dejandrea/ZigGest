@@ -3,6 +3,11 @@ import api from './api';
 import {nfeXml} from '../testFixtures/nfe';
 import {installmentPlan} from './payables';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
+it('routes invoice edits with the expected revision through one atomic RPC',async()=>{
+ await api.put('/entradas-nfe/note',{requestId:'edit',revision:3,header:{number:'123',series:'1',issuerName:'Fornecedor',issuerDocument:'12345678000195',issuedAt:'2026-01-01T13:00:00Z',total:'144'},lines:[{name:'Cola',unit:'PCT',invoiceQuantity:'3',unitPrice:'48',total:'144',stockItemId:'11111111-1111-1111-1111-111111111111',quantity:'3',factor:'12'}],saldo:999});
+ expect(mock.rpc).toHaveBeenCalledWith('edit_stock_invoice',expect.objectContaining({p_id:'note',p_request:'edit',p_revision:3,p_header:expect.objectContaining({total:144}),p_lines:[expect.objectContaining({quantidade:3,fator:12})]}));
+ expect(mock.from).not.toHaveBeenCalled();
+});
 it('saves suppliers atomically with a stock item and sends purchase operations to their RPC',async()=>{
  mock.rpc.mockResolvedValue({data:{id:'item',nome:'Coca',unidade:'UN',saldo:0,fornecedores_ids:['s1','s2','s3']},error:null});
  const {data}=await api.post('/insumos',{nome:'Coca',unidade:'UN',fornecedoresIds:['s1','s2','s3'],saldo:500});

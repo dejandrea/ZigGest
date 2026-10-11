@@ -1,4 +1,6 @@
 import React,{useRef,useState} from 'react';
+import InvoiceTotals from './InvoiceTotals';
+import {invoiceTotals} from '../services/invoiceTotals';
 import api from '../services/api';
 import {stockQuantity} from '../services/dataMapping';
 import {NFE_PORTAL,normalizeInvoiceKey,validInvoiceKey,readNfeFile,localDateTime} from '../services/nfe';
@@ -43,6 +45,9 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
  async function copyKey(){try{await navigator.clipboard.writeText(normalizeInvoiceKey(key));setCopied(true);}catch{setError('Copie a chave do campo e cole no portal oficial.');}}
  async function save(event){
   event.preventDefault();
+  const totals=document?invoiceTotals(document.invoice.total,document.invoice.items,document.invoice.adjustments):null;
+  const warning=totals?.matches===false?'O total da nota difere da soma dos itens. Confira descontos, frete e impostos antes de confirmar.\n\n':'';
+  if(!window.confirm(warning+'Voc\u00ea finalizou a confer\u00eancia e deseja registrar a entrada da nota?'))return;
   try{await run(async()=>{
    if(!document)throw new Error('Importe o XML da NF-e.');
    for(const line of lines){
@@ -73,15 +78,18 @@ export default function InvoiceEntryForm({items,onClose,onSuccess}){
    </section>
    {invoice&&<>
     <div className="product-wide"><button type="button" className="users-secondary" onClick={openSupplier}>Cadastrar fornecedor da NF-e</button>{supplierNotice&&<p role="status" className="users-message users-success">{supplierNotice}</p>}</div>
-    <section className="product-wide invoice-summary" aria-label="Dados da NF-e"><h3>NF-e {invoice.number} / Série {invoice.series}</h3><p><strong>Fornecedor:</strong> {invoice.issuerName} · {invoice.issuerDocument}</p><p><strong>Destinatário:</strong> {invoice.recipientName} · {invoice.recipientDocument}</p><p><strong>Emissão:</strong> {new Date(invoice.issuedAt).toLocaleString('pt-BR')} · <strong>Total:</strong> {money.format(Number(invoice.total))}</p><p>Confira o destinatário e a situação atual da nota no portal antes de registrar.</p></section>
-    <div className="product-wide invoice-items">{invoice.items.map((item,index)=>{
+    <section className="product-wide invoice-section" aria-label="Dados da NF-e"><h3>NF-e {invoice.number} / Série {invoice.series}</h3><div className="invoice-header-grid"><label>Número da nota<input readOnly value={invoice.number}/></label><label>Série<input readOnly value={invoice.series}/></label><label className="invoice-span-2">Data de emissão<input readOnly value={new Date(invoice.issuedAt).toLocaleString('pt-BR')}/></label></div></section>
+    <section className="product-wide invoice-section"><h3>Fornecedor / emitente</h3><div className="invoice-party-grid"><label>CPF / CNPJ do fornecedor<input readOnly value={invoice.issuerDocument}/></label><label>Nome / razão social do fornecedor<input readOnly value={invoice.issuerName}/></label></div></section>
+    <section className="product-wide invoice-section"><h3>Destinatário</h3><div className="invoice-party-grid"><label>CPF / CNPJ do destinatário<input readOnly value={invoice.recipientDocument}/></label><label>Nome / razão social do destinatário<input readOnly value={invoice.recipientName}/></label></div></section>
+    <div className="product-wide invoice-section-heading"><h3>Produtos / insumos</h3></div><div className="product-wide invoice-items">{invoice.items.map((item,index)=>{
      const line=lines[index],stock=active.find(i=>i._id===line.stockItemId),total=Number(line.quantity)*Number(line.factor);
-     return <section key={item.line} className="invoice-item" aria-label={'Item '+item.line+' da nota'}><h3>{item.line}. {item.name}</h3><p className="inventory-code">Código {item.code} · NCM {item.ncm} · CFOP {item.cfop}</p><p>Na nota: {number.format(Number(item.quantity))} {item.unit} · Valor unitário: {money.format(Number(item.unitPrice))} · Total: {money.format(Number(item.total))}</p>
+     return <section key={item.line} className="invoice-item" aria-label={'Item '+item.line+' da nota'}><h3>{item.line}. {item.name}</h3><p className="inventory-code">Código {item.code} · NCM {item.ncm} · CFOP {item.cfop}</p><div className="invoice-fiscal-grid">{[['Quantidade na nota',number.format(Number(item.quantity))],['Unidade na nota',item.unit],['Valor unitário',money.format(Number(item.unitPrice))],['Valor total',money.format(Number(item.total))]].map(([label,value])=><label key={label}>{label}<input aria-label={label+' do item '+item.line} readOnly value={value}/></label>)}</div>
       <div className="invoice-line-fields"><label>Insumo do item {item.line}<select required value={line.stockItemId} onChange={e=>change(index,'stockItemId',e.target.value)}><option value="">Selecione o insumo</option>{active.map(i=><option key={i._id} value={i._id}>{i.nome} / {i.unidade}</option>)}</select></label><label>Quantidade recebida do item {item.line}<input required type="number" min="0.001" step="0.001" value={line.quantity} onChange={e=>change(index,'quantity',e.target.value)}/></label><label>Unidades por embalagem do item {item.line}<input required type="number" min="0.001" step="0.001" value={line.factor} onChange={e=>change(index,'factor',e.target.value)}/></label></div>
       <button type="button" className="users-secondary" onClick={()=>setNewItemLine(index)}>Novo insumo para o item {item.line}</button>
       <p className="inventory-preview">Entrada do item {item.line}: {Number.isFinite(total)?number.format(total):'—'} {stock?.unidade??'unidades'}</p>
      </section>;
     })}</div>
+    <InvoiceTotals adjustments={invoice.adjustments} total={invoice.total} items={invoice.items} readOnly/>
     <small className="product-wide">Exemplo: Coca-Cola com 2 pacotes na nota e 12 unidades por embalagem = 24 UN. A quantidade original da nota é preservada; ajuste a recebida quando necessário. Use Novo insumo no item da nota para cadastrar sem perder esta entrada.</small>
     <label className="product-wide">Data de entrada<input type="datetime-local" value={arrival} onChange={e=>setArrival(e.target.value)}/></label>
     <small className="product-wide">A data inicia na emissão da nota. Ajuste para a chegada real, inclusive retroativa; em branco, usa o momento do registro.</small>

@@ -6,13 +6,25 @@ import {nfeXml,makeKey} from '../testFixtures/nfe';
 const api=vi.hoisted(()=>({post:vi.fn(),get:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
 const item={_id:'11111111-1111-1111-1111-111111111111',nome:'Coca lata',unidade:'UN',ativo:true};
-beforeEach(()=>{vi.clearAllMocks();api.post.mockResolvedValue({data:{}});api.get.mockResolvedValue({data:[]});});
+beforeEach(()=>{vi.clearAllMocks();vi.spyOn(window,'confirm').mockReturnValue(true);api.post.mockResolvedValue({data:{}});api.get.mockResolvedValue({data:[]});});
 async function upload(xml=nfeXml()){
  const file=new File([xml],'nfe.xml',{type:'application/xml'}),bytes=new TextEncoder().encode(xml);
  file.arrayBuffer=async()=>bytes.buffer;
  fireEvent.change(screen.getByLabelText('Arquivo XML da NF-e'),{target:{files:[file]}});
  await screen.findByText('NF-e 1 / Série 1');
 }
+it('does not import stock when the final confirmation is declined',async()=>{
+ window.confirm.mockReturnValue(false);
+ render(<InvoiceEntryForm items={[item]} onClose={vi.fn()} onSuccess={vi.fn()}/>);
+ await upload();
+ expect(screen.getByLabelText('Valor total da nota')).toHaveValue(96);
+ expect(screen.getByLabelText('Soma dos itens lançados')).toHaveValue(96);
+ expect(screen.getByLabelText('Diferença (nota − total calculado)')).toHaveValue(0);
+ fireEvent.change(screen.getByLabelText('Insumo do item 1'),{target:{value:item._id}});
+ fireEvent.click(screen.getByRole('button',{name:'Registrar entrada da NF-e'}));
+ expect(api.post).not.toHaveBeenCalled();
+ expect(screen.getByLabelText('Insumo do item 1')).toHaveValue(item._id);
+});
 it('links an invoice product and converts two packages into 24 units with a safe retry',async()=>{
  api.post.mockRejectedValueOnce(new Error('Resposta perdida'));
  const success=vi.fn();render(<InvoiceEntryForm items={[item]} onClose={vi.fn()} onSuccess={success}/>);

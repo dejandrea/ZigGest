@@ -7,9 +7,19 @@ it('normalizes manual note identity and only sends allowed fields',()=>{
  expect(payload.p_lines[0]).toMatchObject({quantidade_nf:2,quantidade:2,fator:12});
  expect(payload).not.toHaveProperty('saldo');
 });
+it('sends all adjustment fields and rejects negative values',()=>{
+ expect(manualInvoicePayload({...body,header:{...body.header,frete:'10',descontos:'3',impostos:'4',acrescimos:'2'}}).p_header).toMatchObject({frete:10,descontos:3,impostos:4,acrescimos:2});
+ expect(()=>manualInvoicePayload({...body,header:{...body.header,descontos:'-1'}})).toThrow();
+});
 it('rejects missing headers, invalid quantities and future dates',()=>{
  expect(()=>manualInvoicePayload({...body,header:{...body.header,number:''}})).toThrow();
  expect(()=>manualInvoicePayload({...body,header:{...body.header,issuedAt:'2999-01-01'}})).toThrow();
  expect(()=>manualInvoicePayload({...body,lines:[]})).toThrow();
  expect(()=>manualInvoicePayload({...body,lines:[{...body.lines[0],quantity:0.001,factor:0.001}]})).toThrow('precisão');
+});
+it('preserves NF-e quantity and unit price precision when editing an imported entry',()=>{
+ const edited={...body,lines:[{...body.lines[0],invoiceQuantity:'2.1234',unitPrice:'45.1234567890'}]};
+ const payload=manualInvoicePayload(edited,{editing:true});
+ expect(payload.p_lines[0]).toMatchObject({quantidade_nf:2.1234,valor_unitario:45.123456789});
+ expect(()=>manualInvoicePayload(edited)).toThrow();
 });

@@ -2,9 +2,10 @@ import React from 'react';
 import {it,expect,vi,beforeEach} from 'vitest';
 import {render,screen,fireEvent,waitFor} from '@testing-library/react';
 import InvoiceEntryForm from './InvoiceEntryForm';
-const api=vi.hoisted(()=>({post:vi.fn()}));
+import ManualInvoiceEntryForm from './ManualInvoiceEntryForm';
+const api=vi.hoisted(()=>({post:vi.fn(),put:vi.fn()}));
 vi.mock('../services/api',()=>({default:api}));
-beforeEach(()=>{vi.clearAllMocks();api.post.mockResolvedValue({data:{}});});
+beforeEach(()=>{vi.clearAllMocks();vi.spyOn(window,'confirm').mockReturnValue(true);api.post.mockResolvedValue({data:{}});});
 it('enters a note without XML or access key and converts two packages to 24 units',async()=>{
  const success=vi.fn(),item={_id:'11111111-1111-1111-1111-111111111111',nome:'Coca lata',unidade:'UN',ativo:true};
  render(<InvoiceEntryForm items={[item]} onClose={vi.fn()} onSuccess={success}/>);
@@ -25,4 +26,51 @@ it('adds and removes manual invoice lines',()=>{
  fireEvent.click(screen.getByRole('button',{name:'Remover item 1'}));
  expect(screen.queryByLabelText('Descrição do item 2')).not.toBeInTheDocument();
  expect(screen.getByRole('button',{name:'Remover item 1'})).toBeDisabled();
+});
+it('reconciles the item sum and all four adjustments without replacing the informed note total',()=>{
+ render(<ManualInvoiceEntryForm items={[]} onClose={vi.fn()}/>);
+ for(const [label,value] of [['Valor total do item 1','100'],['Valor total da nota','111.35'],['Frete','10'],['Descontos','3.50'],['Impostos','4.25'],['Acréscimos','0.60']])fireEvent.change(screen.getByLabelText(label),{target:{value}});
+ expect(screen.getByLabelText('Soma dos itens lançados')).toHaveValue(100);
+ expect(screen.getByLabelText('Total calculado com ajustes')).toHaveValue(111.35);
+ expect(screen.getByLabelText('Diferença (nota − total calculado)')).toHaveValue(0);
+ expect(screen.getByLabelText('Valor total da nota')).toHaveValue(111.35);
+ expect(screen.getByText(/Conferido: o total/)).toBeInTheDocument();
+});
+it('calculates the item total from quantity and price and allows overriding it',()=>{
+ render(<ManualInvoiceEntryForm items={[]} onClose={vi.fn()}/>);
+ fireEvent.change(screen.getByLabelText('Quantidade na nota do item 1'),{target:{value:'2'}});
+ fireEvent.change(screen.getByLabelText('Valor unitário do item 1'),{target:{value:'48'}});
+ expect(screen.getByLabelText('Valor total do item 1')).toHaveValue(96);
+ fireEvent.change(screen.getByLabelText('Valor total do item 1'),{target:{value:'90'}});
+ expect(screen.getByLabelText('Valor total do item 1')).toHaveValue(90);
+ expect(screen.getByLabelText('Soma dos itens lançados')).toHaveValue(90);
+ expect(screen.getByLabelText('Soma dos itens lançados')).toHaveAttribute('readonly');
+ fireEvent.change(screen.getByLabelText('Valor total da nota'),{target:{value:'96'}});
+ expect(screen.getByLabelText('Diferença (nota − total calculado)')).toHaveValue(6);
+ expect(screen.getByText(/Valores divergentes/)).toBeInTheDocument();
+ window.confirm.mockReturnValue(false);
+ fireEvent.submit(screen.getByRole('button',{name:'Registrar nota manual'}).closest('form'));
+ expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('itens R$ 90.00'));
+});
+it('preserves fields without registering when the confirmation is declined',()=>{
+ window.confirm.mockReturnValue(false);
+ render(<ManualInvoiceEntryForm items={[]} onClose={vi.fn()}/>);
+ fireEvent.change(screen.getByLabelText('Número da nota'),{target:{value:'123'}});
+ fireEvent.submit(screen.getByRole('button',{name:'Registrar nota manual'}).closest('form'));
+ expect(api.post).not.toHaveBeenCalled();
+ expect(screen.getByLabelText('Número da nota')).toHaveValue('123');
+});
+it('edits an existing note with its revision and keeps the same request after a lost response',async()=>{
+ const item={_id:'11111111-1111-1111-1111-111111111111',nome:'Coca',unidade:'UN',ativo:true};
+ api.put.mockRejectedValueOnce(new Error('Resposta perdida')).mockResolvedValueOnce({data:{id:'entry'}});
+ const invoice={id:'note',revision:2,origem:'MANUAL',numero:'123',serie:'1',emitente_nome:'Fornecedor',emitente_documento:'12345678000195',emitida_em:'2026-01-01T13:00:00Z',total:96,destinatario_nome:'',destinatario_documento:'',movement:{ocorrido_em:'2026-01-01T13:00:00Z',observacoes:'Conferir'},itens:[{descricao:'Coca pacote',codigo:'C',unidade_nf:'PCT',quantidade_nf:2,valor_unitario:48,valor_total:96,stock_item_id:item._id,quantidade_recebida:2,fator:12}]};
+ const close=vi.fn();render(<ManualInvoiceEntryForm initialInvoice={invoice} items={[item]} onClose={close}/>);
+ fireEvent.change(screen.getByLabelText('Quantidade recebida do item 1'),{target:{value:'3'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar alterações'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Resposta perdida');
+ fireEvent.click(screen.getByRole('button',{name:'Salvar alterações'}));
+ await waitFor(()=>expect(close).toHaveBeenCalled());
+ expect(api.put.mock.calls[0]).toEqual(api.put.mock.calls[1]);
+ expect(api.put.mock.calls[0]).toEqual(['/entradas-nfe/note',expect.objectContaining({revision:2,lines:[expect.objectContaining({quantity:'3',factor:'12'})]})]);
+ expect(api.post).not.toHaveBeenCalled();
 });
