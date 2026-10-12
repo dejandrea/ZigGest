@@ -1,0 +1,37 @@
+begin;
+do $$begin perform set_config('request.jwt.claim.sub',(select id::text from auth.users where lower(email)='dejandrea@gmail.com'),true);end $$;
+set local role authenticated;
+do $$
+declare a jsonb;b jsonb;c jsonb;stock_a uuid;stock_b uuid;stock_c uuid;inventory uuid:=gen_random_uuid();initial_inventory uuid:=gen_random_uuid();sector uuid:=gen_random_uuid();line uuid;result jsonb;before_movements bigint;
+begin
+ perform public.stock_location_operation(sector,'{"nome":"Inventory item fixture sector","ativo":true}');
+ a:=public.save_registered_item(gen_random_uuid(),null,null,'{"produto":false,"insumo":true,"product":{},"stock":{"nome":"Inventory add fixture A","unidade":"UN"},"components":[],"suppliers":[]}');
+ stock_a:=(a->'stock'->>'id')::uuid;
+ perform public.inventory_operation(inventory,'OPEN',null,jsonb_build_object('kind','COUNT','descricao','Inventory add fixture','item_id',stock_a));
+ perform public.inventory_operation(inventory,'SAVE',0,jsonb_build_object('lines',(select jsonb_agg(jsonb_build_object('line_id',id,'contado',3)) from public.stock_inventory_lines where inventory_id=inventory)));
+ b:=public.save_registered_item(gen_random_uuid(),null,null,'{"produto":false,"insumo":true,"product":{},"stock":{"nome":"Inventory add fixture B","unidade":"UN"},"components":[],"suppliers":[]}');
+ stock_b:=(b->'stock'->>'id')::uuid;
+ select count(*) into before_movements from public.stock_movements;
+ result:=public.inventory_operation(inventory,'ADD_ITEM',1,jsonb_build_object('item_id',stock_b));
+ if (result->>'revision')::integer<>2 or result->>'status'<>'DRAFT' or result->'lines' is null then raise exception 'Draft response incomplete';end if;
+ if (select count(*) from public.stock_inventory_lines where inventory_id=inventory and stock_item_id=stock_b)<>(select count(*) from public.stock_locations where ativo) then raise exception 'New item missing active sectors';end if;
+ if exists(select 1 from public.stock_inventory_lines where inventory_id=inventory and stock_item_id=stock_a and contado<>3) or exists(select 1 from public.stock_inventory_lines where inventory_id=inventory and stock_item_id=stock_b and contado is not null) then raise exception 'Existing counts changed or new positions pre-counted';end if;
+ if (select item_id from public.stock_inventories where id=inventory) is not null then raise exception 'Multi-item inventory still marked individual';end if;
+ if (select count(*) from public.stock_movements)<>before_movements or (select saldo from public.stock_items where id=stock_b)<>0 then raise exception 'Adding item moved stock';end if;
+ if public.inventory_operation(inventory,'ADD_ITEM',1,jsonb_build_object('item_id',stock_b))<>result then raise exception 'Retry was not idempotent';end if;
+ c:=public.save_registered_item(gen_random_uuid(),null,null,'{"produto":false,"insumo":true,"product":{},"stock":{"nome":"Inventory add fixture C","unidade":"UN"},"components":[],"suppliers":[]}');stock_c:=(c->'stock'->>'id')::uuid;
+ begin perform public.inventory_operation(inventory,'ADD_ITEM',0,jsonb_build_object('item_id',stock_c));raise exception 'FAIL stale revision accepted';exception when raise_exception then if SQLERRM like 'FAIL%' then raise;end if;end;
+ if exists(select 1 from public.stock_inventory_lines where inventory_id=inventory and stock_item_id=stock_c) then raise exception 'Stale add partially committed';end if;
+ perform public.inventory_operation(initial_inventory,'OPEN',null,jsonb_build_object('kind','INITIAL','descricao','Initial add sector fixture','location_id',sector,'item_id',stock_a));
+ perform public.record_stock_movement(gen_random_uuid(),'ENTRADA',stock_b,null,1,1,'Main stock only');
+ result:=public.inventory_operation(initial_inventory,'ADD_ITEM',0,jsonb_build_object('item_id',stock_b,'location_id',(select id from public.stock_locations where principal)));
+ if (select count(*) from public.stock_inventory_lines where inventory_id=initial_inventory and stock_item_id=stock_b)<>1 or exists(select 1 from public.stock_inventory_lines where inventory_id=initial_inventory and location_id<>sector) then raise exception 'Inventory sector scope ignored';end if;
+ perform public.record_stock_movement(gen_random_uuid(),'ENTRADA',stock_c,null,1,1,'Fixture movement');
+ perform public.transfer_stock(gen_random_uuid(),jsonb_build_object('origem_id',(select id from public.stock_locations where principal),'destino_id',sector,'item_id',stock_c,'quantidade',1));
+ begin perform public.inventory_operation(initial_inventory,'ADD_ITEM',1,jsonb_build_object('item_id',stock_c));raise exception 'FAIL initial inventory accepted moved item';exception when raise_exception then if SQLERRM like 'FAIL%' then raise;end if;end;
+ perform public.inventory_operation(inventory,'CANCEL',2,'{}');
+ begin perform public.inventory_operation(inventory,'ADD_ITEM',3,jsonb_build_object('item_id',stock_c));raise exception 'FAIL closed inventory modified';exception when raise_exception then if SQLERRM like 'FAIL%' then raise;end if;end;
+ perform set_config('request.jwt.claim.sub','',true);
+ begin perform public.inventory_operation(initial_inventory,'ADD_ITEM',1,jsonb_build_object('item_id',stock_c));raise exception 'FAIL unauthorized add';exception when insufficient_privilege then null;end;
+end $$;
+rollback;

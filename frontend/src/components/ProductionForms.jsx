@@ -3,6 +3,7 @@ import {sumMoney} from '../services/decimalMoney';
 import api from '../services/api';
 import useOperation from '../hooks/useOperation';
 import FormModal,{useFormClose} from './FormModal';
+import ItemForm from './ItemForm';
 import {productionPreview,productionQuantity as q} from '../services/production';
 import {money} from '../services/finance';
 
@@ -16,14 +17,25 @@ function useSave(action,id,revision,onSuccess){
 }
 export function RecipeForm({recipe,items,onClose,onSuccess}){
  const initial=useRef(recipe??{nome:'',ativo:true,observacoes:'',inputs:[{item_id:'',quantidade:'1',custo_unitario:'0'}],outputs:[{product_id:'',quantidade:'1'}]}),id=useRef(recipe?.id??crypto.randomUUID());
- const [form,setForm]=useState(initial.current),op=useSave('RECIPE',id.current,recipe?.revision??null,onSuccess);
- const dirty=JSON.stringify(form)!==JSON.stringify(initial.current),close=useFormClose(onClose,dirty,op.busy);
+ const [form,setForm]=useState(initial.current),[creating,setCreating]=useState(null),[createdItems,setCreatedItems]=useState([]),op=useSave('RECIPE',id.current,recipe?.revision??null,onSuccess);
+ const dirty=JSON.stringify(form)!==JSON.stringify(initial.current),close=useFormClose(onClose,dirty,op.busy||!!creating);
  const change=(key,value)=>setForm(previous=>({...previous,[key]:value}));
  const update=(key,index,field,value)=>change(key,form[key].map((line,i)=>i===index?{...line,[field]:value}:line));
- const stocks=items.filter(item=>item.insumo),products=items.filter(item=>item.produto&&item.insumo&&item.abastecimento==='PRODUCTION');
- return <FormModal labelledBy="recipe-title" onClose={close} dirty={dirty} busy={op.busy}><div className="users-editor product-editor"><h2 id="recipe-title">{recipe?'Editar ficha técnica':'Nova ficha técnica de produção'}</h2><p>Ingredientes por lote e rendimento esperado. Uma ficha pode gerar vários produtos.</p>
+ const available=[...items.filter(item=>!createdItems.some(created=>created.stockId&&created.stockId===item.stockId||created.productId&&created.productId===item.productId)),...createdItems];
+ const stocks=available.filter(item=>item.insumo),products=available.filter(item=>item.produto&&item.insumo&&item.abastecimento==='PRODUCTION');
+ function itemSaved(_message,item,keepOpen){
+  setCreatedItems(previous=>[...previous.filter(row=>row.key!==item.key),item]);
+  const kind=creating,field=kind==='inputs'?'item_id':'product_id',value=kind==='inputs'?item.stockId:item.productId;
+  if(item.ativo&&value&&(kind==='inputs'?item.insumo:item.produto&&item.insumo&&item.abastecimento==='PRODUCTION'))setForm(previous=>{
+   if(previous[kind].some(line=>line[field]===value))return previous;
+   const index=previous[kind].findIndex(line=>!line[field]),line=kind==='inputs'?{item_id:value,quantidade:'1',custo_unitario:String(item.custo??0)}:{product_id:value,quantidade:'1'};
+   return {...previous,[kind]:index>=0?previous[kind].map((row,i)=>i===index?{...row,[field]:value,...(kind==='inputs'?{custo_unitario:String(item.custo??row.custo_unitario)}:{})}:row):previous[kind].length<50?[...previous[kind],line]:previous[kind]};
+  });
+  if(!keepOpen)setCreating(null);
+ }
+ return <><FormModal labelledBy="recipe-title" onClose={close} dirty={dirty} busy={op.busy||!!creating}><div className="users-editor product-editor"><h2 id="recipe-title">{recipe?'Editar ficha técnica':'Nova ficha técnica de produção'}</h2><p>Ingredientes por lote e rendimento esperado. Uma ficha pode gerar vários produtos.</p>
   {op.error&&<p role="alert" className="users-message users-error">{op.error}</p>}
-  <form onSubmit={event=>{event.preventDefault();op.save(form);}}><fieldset disabled={op.busy} className="product-fields">
+  <form onSubmit={event=>{event.preventDefault();op.save(form);}}><fieldset disabled={op.busy||!!creating} className="product-fields">
    <label className="product-wide">Nome da ficha<input required maxLength={200} value={form.nome} onChange={event=>change('nome',event.target.value)}/></label>
    <label>Situação da ficha<select value={String(form.ativo)} onChange={event=>change('ativo',event.target.value==='true')}><option value="true">Ativa</option><option value="false">Inativa</option></select></label>
    <section className="product-wide product-composition"><h3>Ingredientes por lote</h3>{form.inputs.map((line,index)=><div className="production-input" key={index}>
@@ -31,15 +43,15 @@ export function RecipeForm({recipe,items,onClose,onSuccess}){
     <label>Quantidade do ingrediente {index+1}<input required type="number" min="0.001" step="0.001" value={line.quantidade} onChange={event=>update('inputs',index,'quantidade',event.target.value)}/></label>
     <label>Custo por unidade do ingrediente {index+1} (R$)<input required type="number" min="0" step="0.000001" value={line.custo_unitario} onChange={event=>update('inputs',index,'custo_unitario',event.target.value)}/></label>
     <button type="button" className="users-edit" disabled={form.inputs.length===1} onClick={()=>change('inputs',form.inputs.filter((_,i)=>i!==index))}>Remover ingrediente {index+1}</button>
-   </div>)}<button type="button" className="users-secondary" disabled={form.inputs.length>=50} onClick={()=>change('inputs',[...form.inputs,{item_id:'',quantidade:'1',custo_unitario:'0'}])}>Adicionar ingrediente</button><p>Use a unidade do estoque: por exemplo, farinha em KG e ovos em UN. Custos são informados por você e servem como estimativa.</p></section>
+   </div>)}<div className="users-form-actions"><button type="button" className="users-secondary" disabled={form.inputs.length>=50} onClick={()=>change('inputs',[...form.inputs,{item_id:'',quantidade:'1',custo_unitario:'0'}])}>Adicionar ingrediente</button><button type="button" className="users-secondary" disabled={form.inputs.length>=50&&form.inputs.every(line=>line.item_id)} onClick={()=>setCreating('inputs')}>Novo item / insumo</button></div><p>Use a unidade do estoque: por exemplo, farinha em KG e ovos em UN. Custos são informados por você e servem como estimativa.</p></section>
    <section className="product-wide product-composition"><h3>Produtos e rendimento previsto por lote</h3><p>No cadastro de itens, marque Produto e Insumo e escolha “Abastecido por produção”. Não é necessário informar peso ou consumo de massa por tamanho.</p>{form.outputs.map((line,index)=><div className="product-component" key={index}>
     <label>Produto produzido {index+1}<select required value={line.product_id} onChange={event=>update('outputs',index,'product_id',event.target.value)}><option value="">Selecione</option>{products.map(item=><option key={item.productId} value={item.productId} disabled={!item.ativo&&item.productId!==line.product_id||form.outputs.some((row,i)=>i!==index&&row.product_id===item.productId)}>{item.nome} / {item.unidade}{item.ativo?'':' (inativo)'}</option>)}</select></label>
     <label>Rendimento previsto {index+1}<input required type="number" min="0.001" step="0.001" value={line.quantidade} onChange={event=>update('outputs',index,'quantidade',event.target.value)}/></label>
     <button type="button" className="users-edit" disabled={form.outputs.length===1} onClick={()=>change('outputs',form.outputs.filter((_,i)=>i!==index))}>Remover produto {index+1}</button>
-   </div>)}<button type="button" className="users-secondary" disabled={form.outputs.length>=50} onClick={()=>change('outputs',[...form.outputs,{product_id:'',quantidade:'1'}])}>Adicionar produto</button></section>
+   </div>)}<div className="users-form-actions"><button type="button" className="users-secondary" disabled={form.outputs.length>=50} onClick={()=>change('outputs',[...form.outputs,{product_id:'',quantidade:'1'}])}>Adicionar produto</button><button type="button" className="users-secondary" disabled={form.outputs.length>=50&&form.outputs.every(line=>line.product_id)} onClick={()=>setCreating('outputs')}>Novo produto produzido</button></div></section>
    <label className="product-wide">Observações da ficha<textarea maxLength={2000} value={form.observacoes} onChange={event=>change('observacoes',event.target.value)}/></label>
    <div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Cancelar</button><button className="users-primary" type="submit">{op.busy?'Salvando…':'Salvar ficha técnica'}</button></div>
-  </fieldset></form></div></FormModal>;
+  </fieldset></form></div></FormModal>{creating&&<ItemForm initialValues={creating==='inputs'?{produto:false,insumo:true}:{produto:true,insumo:true,abastecimento:'PRODUCTION'}} onClose={()=>setCreating(null)} onSuccess={itemSaved}/>}</>;
 }
 export function ProductionForm({recipe,items,locations,onClose,onSuccess}){
  const initial=useRef({recipe_id:recipe.id,multiplier:'1',location_id:'',extra_cost:'0',ocorrido_em:'',observacoes:'',outputs:recipe.outputs.map(line=>({...line,quantidade:String(line.quantidade)}))}),id=useRef(crypto.randomUUID());

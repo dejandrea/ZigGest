@@ -8,7 +8,43 @@ vi.mock('../auth/AuthContext',()=>({useAuth:()=>({isAdmin:mock.admin})}));
 const stock=[{_id:'cola',nome:'Coca',ativo:true,unidade:'UN'},{_id:'water',nome:'Água',ativo:true,unidade:'UN'}];
 const draft={id:'inventory',descricao:'Contagem outubro',kind:'COUNT',status:'DRAFT',revision:0,created_at:'2026-10-11T03:00:00Z',lines:[{id:'line1',stock_item_id:'cola',nome:'Coca',unidade:'UN',saldo_referencia:5,contado:null},{id:'line2',stock_item_id:'water',nome:'Água',unidade:'UN',saldo_referencia:10,contado:null}]};
 let inventories;
-beforeEach(()=>{vi.clearAllMocks();mock.admin=true;inventories=[structuredClone(draft)];mock.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:path==='/insumos'?stock:structuredClone(inventories)}));mock.post.mockImplementation((_path,body)=>{if(body.action==='SAVE'){inventories[0].revision++;for(const line of inventories[0].lines)line.contado=body.data.lines.find(l=>l.line_id===line.id).contado;}if(body.action==='CONFIRM'){inventories[0].status='CONFIRMED';inventories[0].confirmed_at='2026-10-11T03:00:00Z';}return Promise.resolve({data:inventories[0]});});});
+beforeEach(()=>{vi.clearAllMocks();mock.admin=true;inventories=[structuredClone(draft)];mock.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:path==='/insumos'?stock:path==='/itens'||path==='/fornecedores'?[]:structuredClone(inventories)}));mock.post.mockImplementation((_path,body)=>{if(body.action==='SAVE'){inventories[0].revision++;for(const line of inventories[0].lines)line.contado=body.data.lines.find(l=>l.line_id===line.id).contado;}if(body.action==='CONFIRM'){inventories[0].status='CONFIRMED';inventories[0].confirmed_at='2026-10-11T03:00:00Z';}return Promise.resolve({data:inventories[0]});});});
+it('registers a new item inside the draft and preserves unsaved physical counts',async()=>{
+ const create={key:'s:egg',stockId:'egg',nome:'OVO',insumo:true,ativo:true,unidade:'UN'};
+ const post=mock.post.getMockImplementation();mock.post.mockImplementation((path,body)=>{
+  if(path==='/itens')return Promise.resolve({data:create});
+  if(body.action==='ADD_ITEM'){inventories[0].revision++;inventories[0].lines.push({id:'egg-line',stock_item_id:'egg',nome:'OVO',unidade:'UN',saldo_referencia:0,contado:null});return Promise.resolve({data:structuredClone(inventories[0])});}
+  return post(path,body);
+ });
+ render(<Inventario/>);fireEvent.click(await screen.findByRole('button',{name:'Abrir Contagem outubro'}));
+ fireEvent.change(screen.getByLabelText('Quantidade física de Coca'),{target:{value:'4'}});
+ fireEvent.click(screen.getByRole('button',{name:'Cadastrar novo item'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar item'})).toBeEnabled());
+ expect(screen.getByRole('checkbox',{name:/Insumo —/})).toBeChecked();
+ fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Ovo'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar item'}));
+ expect(await screen.findByLabelText('Quantidade física de OVO')).toHaveValue(null);
+ expect(screen.getByLabelText('Quantidade física de Coca')).toHaveValue(4);
+ expect(mock.post).toHaveBeenCalledWith('/inventarios',{id:'inventory',action:'ADD_ITEM',revision:0,data:{item_id:'egg'}});
+ expect(mock.post.mock.calls.some(([,body])=>body.action==='CONFIRM'||body.action==='SAVE')).toBe(false);
+});
+it('retries including an already registered item without registering it again',async()=>{
+ let failed=true;mock.post.mockImplementation((path,body)=>{
+  if(path==='/itens')return Promise.resolve({data:{key:'s:egg',stockId:'egg',nome:'OVO',insumo:true,ativo:true,unidade:'UN'}});
+  if(body.action==='ADD_ITEM'&&failed){failed=false;return Promise.reject(new Error('Conexão perdida'));}
+  return Promise.resolve({data:{...draft,revision:1,lines:[...draft.lines,{id:'egg-line',stock_item_id:'egg',nome:'OVO',unidade:'UN',saldo_referencia:0,contado:null}]}});
+ });
+ render(<Inventario/>);fireEvent.click(await screen.findByRole('button',{name:'Abrir Contagem outubro'}));
+ fireEvent.change(screen.getByLabelText('Quantidade física de Coca'),{target:{value:'4'}});
+ fireEvent.click(screen.getByRole('button',{name:'Cadastrar novo item'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar item'})).toBeEnabled());
+ fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Ovo'}});fireEvent.click(screen.getByRole('button',{name:'Salvar item'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Conexão perdida');
+ fireEvent.click(screen.getByRole('button',{name:'Tentar incluir itens'}));
+ await screen.findByLabelText('Quantidade física de OVO');
+ expect(screen.getByLabelText('Quantidade física de Coca')).toHaveValue(4);
+ expect(mock.post.mock.calls.filter(([path])=>path==='/itens')).toHaveLength(1);
+});
 it('distinguishes zero from uncounted and rejects negative or overprecise counts',()=>{
  expect(inventoryCounts(draft.lines,{line1:'0',line2:''})).toEqual([{line_id:'line1',contado:0},{line_id:'line2',contado:null}]);
  expect(()=>inventoryCounts(draft.lines,{line1:'-1'})).toThrow('quantidades');
