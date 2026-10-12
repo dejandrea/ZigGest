@@ -57,7 +57,8 @@ describe('protected application',()=>{
   });
   it('blocks the user-management route for operators',()=>{
     open('/usuarios');expect(screen.queryByRole('heading',{name:'Usuários'})).not.toBeInTheDocument();
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.rpc).not.toHaveBeenCalledWith('admin_list_accounts');
+    expect(mocks.rpc.mock.calls.every(([name])=>name==='system_notifications')).toBe(true);
   });
   it('shows user management only to administrators',async()=>{
     mocks.auth.profile.role='ADMIN';mocks.auth.isAdmin=true;open('/usuarios');

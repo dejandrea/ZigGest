@@ -2,7 +2,7 @@ import React,{useState} from 'react';
 import {Outlet,useLocation,useNavigate} from 'react-router-dom';
 import {useAuth} from '../auth/AuthContext';
 import Icon from './Icon';
-import StockNotifications from './StockNotifications';
+import SystemNotifications from './SystemNotifications';
 import {navigationGroups,navigationTitle} from './navigation';
 import '../styles/pages/Home.css';
 import '../styles/components/AppLayout.css';
@@ -35,6 +35,6 @@ export default function AppLayout() {
       </nav>
       <div className="home-sidebar-bottom"><div className="home-identity"><span className="home-avatar" aria-hidden="true">{name[0].toUpperCase()}</span><div><strong>{name}</strong><small>{role}</small></div></div><button className="home-exit" onClick={logout} disabled={busy}><Icon name="exit"/>{busy?'Saindo…':'Sair do sistema'}</button>{error&&<p className="home-signout-error" role="alert">{error}</p>}</div>
     </aside>
-    <main className="home-main"><header className="home-topbar"><div><span className="home-breadcrumb">ZigGest /</span>{navigationTitle(pathname)}</div><button onClick={()=>go('/alterar-senha')}>Minha conta <span aria-hidden="true">↗</span></button></header><StockNotifications/><div className="app-route-content"><Outlet/></div></main>
+    <main className="home-main"><header className="home-topbar"><div><span className="home-breadcrumb">ZigGest /</span>{navigationTitle(pathname)}</div><button onClick={()=>go('/alterar-senha')}>Minha conta <span aria-hidden="true">↗</span></button></header><SystemNotifications/><div className="app-route-content"><Outlet/></div></main>
   </div>;
 }

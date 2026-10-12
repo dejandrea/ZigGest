@@ -3,6 +3,12 @@ import api from './api';
 import {nfeXml} from '../testFixtures/nfe';
 import {installmentPlan} from './payables';
 const mock=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),responses:[],queries:[]}));
+it('loads the global notifications in one read-only RPC',async()=>{
+ mock.rpc.mockResolvedValueOnce({data:[],error:null});
+ expect(await api.get('/notificacoes')).toEqual({data:[]});
+ expect(mock.rpc).toHaveBeenCalledWith('system_notifications');
+ expect(mock.from).not.toHaveBeenCalled();
+});
 it('routes a production through one guarded RPC with editable actual yields',async()=>{
  await api.post('/producao',{requestId:'retry',id:'batch',action:'PRODUCE',revision:2,data:{recipe_id:'recipe',multiplier:'2',outputs:[{product_id:'cup',quantidade:'24'},{product_id:'cake',quantidade:'0'}],saldo:999,total_cost:1}});
  expect(mock.rpc).toHaveBeenCalledWith('production_operation',expect.objectContaining({p_request:'retry',p_id:'batch',p_action:'PRODUCE',p_revision:2,p_data:expect.objectContaining({multiplier:2,outputs:[{product_id:'cup',quantidade:24},{product_id:'cake',quantidade:0}]})}));

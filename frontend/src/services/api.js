@@ -74,6 +74,7 @@ const api = {
       })};
     }
     if(resource==='caixa')return {data:await result(client().rpc('cash_dashboard'))};
+    if(resource==='notificacoes')return {data:await result(client().rpc('system_notifications'))};
     if(resource==='alertas-estoque')return {data:(await all('low_stock_alerts','started_at')).filter(a=>a.ativo)};
     if(resource==='compras'){
       const [items,suppliers,rounds]=await Promise.all([api.get('/insumos'),api.get('/fornecedores'),all('purchase_rounds','created_at','id,numero,nome,status,revision,items,offers,decision,actor_id,created_at,updated_at')]);
