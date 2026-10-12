@@ -16,6 +16,7 @@ export default function AppLayout() {
   const role=profile?.role==='MASTER'?'Master da plataforma':profile?.role==='ADMIN'?'Administrador':'Operador';
   function go(path){navigate(path);setMenuOpen(false);}
   async function logout(){setBusy(true);setError('');try{await signOut();}catch{setError('Não foi possível sair. Tente novamente.');}finally{setBusy(false);}}
+  if(pathname==='/pdv'||pathname==='/comandas')return <div className="home-shell app-layout is-workstation"><main className="home-main"><SystemNotifications/><div className="app-route-content"><Outlet/></div></main></div>;
   return <div className="home-shell app-layout">
     <aside className="home-sidebar app-sidebar" aria-label="Menu principal">
       <div className="app-brand-row"><div className="home-brand"><span aria-hidden="true">Z</span><h2>ZigGest</h2></div><button className="app-menu-toggle" aria-expanded={menuOpen} aria-controls="app-navigation" onClick={()=>setMenuOpen(!menuOpen)}>{menuOpen?'Fechar menu':'Menu'}</button></div>

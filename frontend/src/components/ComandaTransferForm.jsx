@@ -17,6 +17,7 @@ export default function ComandaTransferForm({comanda,comandas,customers,onClose,
   if((convert||destination==='new')&&!name.trim())throw new Error('Informe a identificação da nova comanda.');
   const base={request_id:request,total:Number(comanda.total_geral),paid_total:Number(comanda.paid_total??0),identificacao:name,customer_codigo:customer?Number(customer):null};
   if(convert)return {id:comanda.id,action:'CONVERT',data:base};
+  if(Number(comanda.discount_amount??0)!==0||Number(comanda.surcharge_amount??0)!==0)throw new Error('Remova os descontos e acréscimos antes de transferir itens. Converter todo o atendimento preserva os ajustes.');
   const items=selectedItems(comanda,quantities);
   if(!items.length)throw new Error('Selecione pelo menos um item para transferir.');
   if(total>remainingBalance(comanda))throw new Error('Os itens ultrapassam o saldo restante. Pagamentos por valor permanecem na origem.');

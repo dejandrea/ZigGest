@@ -18,7 +18,10 @@ it('separates PDV drafts from comandas and opens the new sale immediately',async
  mock.post.mockImplementation(()=>{created=true;return Promise.resolve({data:row});});
  render(<MemoryRouter><Comandas pdv/></MemoryRouter>);
  await waitFor(()=>expect(screen.getByRole('button',{name:'+ Nova venda'})).toBeEnabled());expect(screen.queryByText('Cliente em comanda')).not.toBeInTheDocument();
- fireEvent.click(screen.getByRole('button',{name:'+ Nova venda'}));fireEvent.click(screen.getByRole('button',{name:'Iniciar venda'}));
+ fireEvent.click(screen.getByRole('button',{name:'+ Nova venda'}));
  await screen.findByRole('heading',{name:'Venda PDV #1'});expect(screen.getByRole('button',{name:'Finalizar venda'})).toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:'Iniciar venda'})).not.toBeInTheDocument();
+ expect(screen.getByLabelText('Cliente')).toHaveValue('');
+ expect(screen.getByRole('button',{name:'+ Novo cliente'})).toBeInTheDocument();
  expect(mock.post).toHaveBeenCalledWith('/comandas',expect.objectContaining({action:'OPEN_PDV',data:{identificacao:'Venda avulsa',customer_codigo:null}}));
 });

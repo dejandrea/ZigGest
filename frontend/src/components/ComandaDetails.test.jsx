@@ -64,6 +64,7 @@ it('pays selected item quantities with split forms and keeps the comanda open',a
 });
 it('uses a rate share as a partial value and allows editing payment methods',async()=>{
  render(<ComandaDetails {...props}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Rateio'}));
  fireEvent.change(screen.getByLabelText('Quantidade de pessoas'),{target:{value:'3'}});
  fireEvent.click(screen.getByRole('button',{name:'Calcular rateio'}));
  fireEvent.click(await screen.findByRole('button',{name:/Pessoa 1/}));

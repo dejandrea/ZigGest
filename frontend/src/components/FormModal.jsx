@@ -9,7 +9,7 @@ export function useFormClose(onClose,dirty,busy){
     onClose();
   };
 }
-export default function FormModal({labelledBy,onClose,dirty=false,busy=false,children}){
+export default function FormModal({labelledBy,onClose,dirty=false,busy=false,className='',children}){
   const ref=useRef(null),closeRef=useRef(onClose);
   const [trigger]=useState(()=>document.activeElement);
   closeRef.current=onClose;
@@ -25,5 +25,5 @@ export default function FormModal({labelledBy,onClose,dirty=false,busy=false,chi
     window.addEventListener('beforeunload',protect);
     return()=>window.removeEventListener('beforeunload',protect);
   },[dirty,busy]);
-  return createPortal(<dialog ref={ref} className="form-modal users-page" aria-labelledby={labelledBy} aria-modal="true" onCancel={event=>{event.preventDefault();if(!busy)closeRef.current();}}>{children}</dialog>,document.body);
+  return createPortal(<dialog ref={ref} className={'form-modal users-page '+className} aria-labelledby={labelledBy} aria-modal="true" onCancel={event=>{event.preventDefault();if(!busy)closeRef.current();}}>{children}</dialog>,document.body);
 }
