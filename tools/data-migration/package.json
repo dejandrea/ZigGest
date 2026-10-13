@@ -4,10 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test",
+    "test": "node --test transform.test.mjs target-connection.test.mjs",
     "inspect": "node inspect-source.mjs",
     "compare": "node compare-target.mjs",
-    "fingerprints": "node verify-fingerprints.mjs"
+    "fingerprints": "node verify-fingerprints.mjs",
+    "prepare:target": "node prepare-target.mjs",
+    "update:target": "node update-target.mjs",
+    "verify:target": "node verify-target.mjs",
+    "test:target": "node test-target.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",
