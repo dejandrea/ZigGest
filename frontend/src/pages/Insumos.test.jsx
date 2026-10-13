@@ -1,0 +1,118 @@
+import React from 'react';
+import {beforeEach,it,expect,vi} from 'vitest';
+import {render,screen,fireEvent,waitFor,within} from '@testing-library/react';
+import Insumos from './Insumos';
+import {MemoryRouter} from 'react-router-dom';
+const open=(props={})=>render(<MemoryRouter><Insumos {...props}/></MemoryRouter>);
+const api=vi.hoisted(()=>({get:vi.fn(),post:vi.fn(),put:vi.fn()}));
+vi.mock('../services/api',()=>({default:api}));
+const rows=[{_id:'i1',codigoInsumo:1,nome:'Coca-Cola lata',unidade:'UN',saldo:144,estoqueMinimo:12,ativo:true},{_id:'i2',codigoInsumo:2,nome:'Pão',unidade:'UN',saldo:0,estoqueMinimo:5,ativo:true}];
+beforeEach(()=>{vi.clearAllMocks();api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:rows}));api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
+it('clears the insumo for a new registration while keeping the form open',async()=>{
+ open();await screen.findByText('Coca-Cola lata');
+ fireEvent.click(screen.getByRole('button',{name:/Novo item/}));await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar item'})).toBeEnabled());
+ fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Novo insumo'}});
+ fireEvent.change(screen.getByLabelText('Estoque mínimo (opcional)'),{target:{value:'10'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar e continuar'}));
+ await waitFor(()=>expect(screen.getByLabelText('Nome do item')).toHaveValue(''));
+ expect(await screen.findByLabelText('Estoque mínimo (opcional)')).toHaveValue(null);
+ expect(screen.getByRole('dialog')).toBeInTheDocument();
+});
+it('saves three supplier links together with the insumo without touching its balance',async()=>{
+ const vendors=[{_id:'s1',nome:'Fornecedor um',ativo:true},{_id:'s2',nome:'Fornecedor dois',ativo:true},{_id:'s3',nome:'Fornecedor três',ativo:true}];
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/fornecedores'?vendors:path==='/estoques'?{locations:[],balances:[]}:rows}));
+ open();await screen.findByText('Coca-Cola lata');fireEvent.click(screen.getByRole('button',{name:/Novo item/}));await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar item'})).toBeEnabled());
+ await waitFor(()=>expect(screen.getByLabelText('Fornecedor 1')).toBeEnabled());
+ fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Refrigerante'}});
+ for(let index=1;index<=3;index++)fireEvent.change(screen.getByLabelText('Fornecedor '+index),{target:{value:'s'+index}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar item'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/itens',expect.objectContaining({nome:'Refrigerante',fornecedoresIds:['s1','s2','s3']})));
+ expect(api.post.mock.calls[0][1]).not.toHaveProperty('saldo');
+});
+it('shows the chosen sector balance and offers transfers from the stock overview',async()=>{
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[{id:'kitchen',nome:'Cozinha',ativo:true}],balances:[{stock_item_id:'i1',location_id:'kitchen',saldo:7}]}:rows}));
+ open({overview:true});await screen.findByText('Coca-Cola lata');
+ fireEvent.change(screen.getByLabelText('Estoque / setor'),{target:{value:'kitchen'}});
+ expect(screen.getByText('7 UN')).toBeInTheDocument();expect(screen.queryByText('144 UN')).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Transferir estoque'})).toBeEnabled();
+});
+it('shows the shared balance and filters low-stock items',async()=>{
+ open({overview:true});await screen.findByText('Coca-Cola lata');
+ expect(screen.getByText('144 UN')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Filtrar estoque'),{target:{value:'low'}});
+ expect(screen.queryByText('Coca-Cola lata')).not.toBeInTheDocument();
+ expect(screen.getByText('Pão')).toBeInTheDocument();
+});
+it('creates a base item without setting its balance directly',async()=>{
+ open();await screen.findByText('Coca-Cola lata');
+ fireEvent.click(screen.getByRole('button',{name:/Novo item/}));await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar item'})).toBeEnabled());
+ fireEvent.change(screen.getByLabelText('Nome do item'),{target:{value:'Água mineral'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar item'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/itens',expect.objectContaining({nome:'Água mineral',unidade:'UN',estoqueMinimo:'',bloquearEstoqueNegativo:false})));
+ expect(api.post.mock.calls[0][1]).not.toHaveProperty('saldo');
+});
+it('converts 12 packs of 12 and safely reuses a request after a failed response',async()=>{
+ api.post.mockRejectedValueOnce(new Error('Falha de conexão'));
+ open();await screen.findByText('Coca-Cola lata');
+ fireEvent.click(screen.getByRole('button',{name:'Entrada de Coca-Cola lata'}));
+ fireEvent.change(screen.getByLabelText('Quantidade de embalagens'),{target:{value:'12'}});
+ fireEvent.change(screen.getByLabelText('Unidades por embalagem'),{target:{value:'12'}});
+ fireEvent.change(screen.getByLabelText('Observações'),{target:{value:'Compra teste'}});
+ expect(screen.getByText(/Entrada: 144 UN/)).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Registrar movimentação'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Falha de conexão');
+ fireEvent.click(screen.getByRole('button',{name:'Registrar movimentação'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledTimes(2));
+ expect(api.post.mock.calls[0][1].requestId).toBe(api.post.mock.calls[1][1].requestId);
+ expect(api.post.mock.calls[0][1]).toMatchObject({tipo:'ENTRADA',quantidade:'12',fator:'12',itemId:'i1'});
+ await screen.findByRole('dialog',{name:/financeiro/});
+ fireEvent.click(screen.getByRole('button',{name:'Agora n\u00e3o'}));
+ await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+});
+it('keeps the base unit immutable in the edit form',async()=>{
+ open();await screen.findByText('Coca-Cola lata');
+ fireEvent.click(screen.getByRole('button',{name:'Editar item Coca-Cola lata'}));
+ expect(await screen.findByLabelText('Unidade')).toBeDisabled();
+});
+it('excludes items without a minimum from replenishment alerts and saves optional controls',async()=>{
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:[{...rows[0],saldo:-2,estoqueMinimo:null}]}));
+ open();await screen.findByText('Coca-Cola lata');
+ expect(screen.getByText('-2 UN')).toBeInTheDocument();
+ expect(screen.getByText('Sem limite')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Filtrar estoque'),{target:{value:'low'}});
+ expect(screen.queryByText('Coca-Cola lata')).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Filtrar estoque'),{target:{value:'all'}});
+ fireEvent.click(screen.getByRole('button',{name:'Editar item Coca-Cola lata'}));
+ expect(await screen.findByLabelText('Estoque mínimo (opcional)')).toHaveValue(null);
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar item'})).toBeEnabled());
+ fireEvent.click(screen.getByLabelText('Bloquear saída com estoque negativo'));
+ fireEvent.click(screen.getByRole('button',{name:'Salvar item'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/itens',expect.objectContaining({estoqueMinimo:'',bloquearEstoqueNegativo:true})));
+});
+it('records the arrival date on a backdated entry',async()=>{
+ open();await screen.findByText('Coca-Cola lata');
+ fireEvent.click(screen.getByRole('button',{name:'Entrada de Coca-Cola lata'}));
+ fireEvent.change(screen.getByLabelText('Data de entrada (opcional)'),{target:{value:'2026-01-01T10:30'}});
+ fireEvent.change(screen.getByLabelText('Observações'),{target:{value:'Nota recebida anteriormente'}});
+ fireEvent.click(screen.getByRole('button',{name:'Registrar movimentação'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/movimentacoes-estoque',expect.objectContaining({dataEntrada:'2026-01-01T10:30'})));
+});
+it('creates an insumo from a manual entry while preserving quantities and notes',async()=>{
+ const created={_id:'i3',codigoInsumo:3,nome:'Água',unidade:'UN',ativo:true};
+ api.post.mockResolvedValueOnce({data:created});
+ open();await screen.findByText('Coca-Cola lata');
+ fireEvent.click(screen.getByRole('button',{name:'Entrada de Coca-Cola lata'}));
+ fireEvent.change(screen.getByLabelText('Quantidade de embalagens'),{target:{value:'2'}});
+ fireEvent.change(screen.getByLabelText('Unidades por embalagem'),{target:{value:'12'}});
+ fireEvent.change(screen.getByLabelText('Observações'),{target:{value:'Compra nova'}});
+ fireEvent.click(screen.getByRole('button',{name:'Novo insumo'}));
+ const editor=screen.getByRole('dialog',{name:'Novo item'});await waitFor(()=>expect(within(editor).getByRole('button',{name:'Salvar item'})).toBeEnabled());
+ fireEvent.change(within(editor).getByLabelText('Nome do item'),{target:{value:'Água'}});
+ fireEvent.click(within(editor).getByRole('button',{name:'Salvar item'}));
+ await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Novo item'})).not.toBeInTheDocument());
+ expect(screen.getByLabelText('Item de estoque')).toHaveValue('i3');
+ expect(screen.getByLabelText('Observações')).toHaveValue('Compra nova');
+ expect(screen.getByText(/Entrada: 24 UN/)).toBeInTheDocument();
+ expect(api.post).toHaveBeenCalledTimes(1);
+ fireEvent.click(screen.getByRole('button',{name:'Registrar movimentação'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/movimentacoes-estoque',expect.objectContaining({itemId:'i3',quantidade:'2',fator:'12',observacoes:'Compra nova'})));
+});

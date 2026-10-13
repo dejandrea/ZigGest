@@ -1,0 +1,26 @@
+{
+  "name": "appninja-data-migration",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test transform.test.mjs target-connection.test.mjs",
+    "inspect": "node inspect-source.mjs",
+    "compare": "node compare-target.mjs",
+    "fingerprints": "node verify-fingerprints.mjs",
+    "prepare:target": "node prepare-target.mjs",
+    "update:target": "node update-target.mjs",
+    "verify:target": "node verify-target.mjs",
+    "test:target": "node test-target.mjs",
+    "plan:import": "node plan-import.mjs",
+    "import:target": "node import-target.mjs",
+    "verify:import": "node verify-import.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.3",
+    "decimal.js": "10.6.0",
+    "dotenv": "18.0.6",
+    "mongodb": "7.7.0",
+    "pg": "8.23.1"
+  }
+}

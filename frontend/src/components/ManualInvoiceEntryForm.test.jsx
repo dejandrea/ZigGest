@@ -1,0 +1,105 @@
+import React from 'react';
+import {it,expect,vi,beforeEach} from 'vitest';
+import {render,screen,fireEvent,waitFor} from '@testing-library/react';
+import InvoiceEntryForm from './InvoiceEntryForm';
+import ManualInvoiceEntryForm from './ManualInvoiceEntryForm';
+const api=vi.hoisted(()=>({post:vi.fn(),put:vi.fn(),get:vi.fn()}));
+vi.mock('../services/api',()=>({default:api}));
+beforeEach(()=>{vi.clearAllMocks();api.get.mockResolvedValue({data:[]});vi.spyOn(window,'confirm').mockReturnValue(true);api.post.mockResolvedValue({data:{}});});
+it('calculates six decimal item costs without losing fractional cents',()=>{
+ render(<ManualInvoiceEntryForm items={[]} onClose={vi.fn()}/>);
+ fireEvent.change(screen.getByLabelText('Valor unitário do item 1'),{target:{value:'0.123456'}});
+ fireEvent.change(screen.getByLabelText('Quantidade na nota do item 1'),{target:{value:'3'}});
+ expect(screen.getByLabelText('Valor total do item 1')).toHaveValue(0.370368);
+ expect(screen.getByLabelText('Soma dos itens lançados')).toHaveValue(0.370368);
+ fireEvent.change(screen.getByLabelText('Valor total do item 1'),{target:{value:'0.370369'}});
+ expect(screen.getByLabelText('Soma dos itens lançados')).toHaveValue(0.370369);
+});
+it('fills registered suppliers and recipients by document or selection without losing invoice lines',async()=>{
+ const vendor={_id:'s',nome:'FORNECEDOR CADASTRADO',documento:'19.131.243/0001-97',ativo:true},recipient={_id:'r',nome:'FILIAL DOIS',documento:'41817328000109',ativo:true};
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/fornecedores'?[vendor]:path==='/destinatarios'?[recipient]:[]}));
+ render(<ManualInvoiceEntryForm items={[]} onClose={vi.fn()}/>);
+ await screen.findByRole('option',{name:/FORNECEDOR CADASTRADO ·/});
+ fireEvent.change(screen.getByLabelText('Descrição do item 1'),{target:{value:'Coca'}});
+ fireEvent.change(screen.getByLabelText('CPF / CNPJ do fornecedor'),{target:{value:'19131243000197'}});
+ expect(screen.getByLabelText('Nome / razão social do fornecedor')).toHaveValue('FORNECEDOR CADASTRADO');
+ fireEvent.change(screen.getByLabelText('Destinatário cadastrado'),{target:{value:'r'}});
+ expect(screen.getByLabelText('Destinatário (opcional)')).toHaveValue('FILIAL DOIS');
+ expect(screen.getByLabelText('CPF / CNPJ do destinatário (opcional)')).toHaveValue('41.817.328/0001-09');
+ expect(screen.getByLabelText('Descrição do item 1')).toHaveValue('Coca');
+});
+it('keeps manual entry available when the saved supplier lookup fails',async()=>{
+ api.get.mockImplementation(path=>path==='/fornecedores'?Promise.reject(new Error('Conexão')):Promise.resolve({data:[]}));
+ render(<ManualInvoiceEntryForm items={[]} onClose={vi.fn()}/>);
+ expect(await screen.findByRole('alert')).toHaveTextContent('fornecedores cadastrados');
+ fireEvent.change(screen.getByLabelText('Nome / razão social do fornecedor'),{target:{value:'Fornecedor manual'}});
+ expect(screen.getByLabelText('Nome / razão social do fornecedor')).toHaveValue('Fornecedor manual');
+});
+it('enters a note without XML or access key and converts two packages to 24 units',async()=>{
+ const success=vi.fn(),item={_id:'11111111-1111-1111-1111-111111111111',nome:'Coca lata',unidade:'UN',ativo:true};
+ render(<InvoiceEntryForm items={[item]} onClose={vi.fn()} onSuccess={success}/>);
+ fireEvent.change(screen.getByLabelText('Forma de entrada'),{target:{value:'manual'}});
+ expect(screen.queryByLabelText('Arquivo XML da NF-e')).not.toBeInTheDocument();
+ for(const [label,value] of [['Número da nota','123'],['Série','1'],['Nome / razão social do fornecedor','Fornecedor'],['CPF / CNPJ do fornecedor','12345678000195'],['Data de emissão','2026-01-01T10:00'],['Valor total da nota','96'],['Descrição do item 1','Coca pacote'],['Unidade na nota do item 1','PCT'],['Quantidade na nota do item 1','2'],['Valor unitário do item 1','48'],['Valor total do item 1','96'],['Quantidade recebida do item 1','2'],['Unidades por embalagem do item 1','12'],['Insumo do item 1',item._id]])fireEvent.change(screen.getByLabelText(label),{target:{value}});
+ expect(screen.getByText('Entrada do item 1: 24 UN')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Registrar nota manual'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/entradas-nfe-manual',expect.objectContaining({header:expect.objectContaining({number:'123'}),lines:[expect.objectContaining({quantity:'2',factor:'12',stockItemId:item._id})]})));
+ expect(api.post.mock.calls[0][1]).not.toHaveProperty('xml');
+ expect(success).toHaveBeenCalled();
+});
+it('adds and removes manual invoice lines',()=>{
+ render(<InvoiceEntryForm items={[]} onClose={vi.fn()} onSuccess={vi.fn()}/>);
+ fireEvent.change(screen.getByLabelText('Forma de entrada'),{target:{value:'manual'}});
+ fireEvent.click(screen.getByRole('button',{name:'Adicionar item'}));
+ expect(screen.getByLabelText('Descrição do item 2')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Remover item 1'}));
+ expect(screen.queryByLabelText('Descrição do item 2')).not.toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Remover item 1'})).toBeDisabled();
+});
+it('reconciles the item sum and all four adjustments without replacing the informed note total',()=>{
+ render(<ManualInvoiceEntryForm items={[]} onClose={vi.fn()}/>);
+ for(const [label,value] of [['Valor total do item 1','100'],['Valor total da nota','111.35'],['Frete','10'],['Descontos','3.50'],['Impostos','4.25'],['Acréscimos','0.60']])fireEvent.change(screen.getByLabelText(label),{target:{value}});
+ expect(screen.getByLabelText('Soma dos itens lançados')).toHaveValue(100);
+ expect(screen.getByLabelText('Total calculado com ajustes')).toHaveValue(111.35);
+ expect(screen.getByLabelText('Diferença (nota − total calculado)')).toHaveValue(0);
+ expect(screen.getByLabelText('Valor total da nota')).toHaveValue(111.35);
+ expect(screen.getByText(/Conferido: o total/)).toBeInTheDocument();
+});
+it('calculates the item total from quantity and price and allows overriding it',()=>{
+ render(<ManualInvoiceEntryForm items={[]} onClose={vi.fn()}/>);
+ fireEvent.change(screen.getByLabelText('Quantidade na nota do item 1'),{target:{value:'2'}});
+ fireEvent.change(screen.getByLabelText('Valor unitário do item 1'),{target:{value:'48'}});
+ expect(screen.getByLabelText('Valor total do item 1')).toHaveValue(96);
+ fireEvent.change(screen.getByLabelText('Valor total do item 1'),{target:{value:'90'}});
+ expect(screen.getByLabelText('Valor total do item 1')).toHaveValue(90);
+ expect(screen.getByLabelText('Soma dos itens lançados')).toHaveValue(90);
+ expect(screen.getByLabelText('Soma dos itens lançados')).toHaveAttribute('readonly');
+ fireEvent.change(screen.getByLabelText('Valor total da nota'),{target:{value:'96'}});
+ expect(screen.getByLabelText('Diferença (nota − total calculado)')).toHaveValue(6);
+ expect(screen.getByText(/Valores divergentes/)).toBeInTheDocument();
+ window.confirm.mockReturnValue(false);
+ fireEvent.submit(screen.getByRole('button',{name:'Registrar nota manual'}).closest('form'));
+ expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('itens R$ 90.00'));
+});
+it('preserves fields without registering when the confirmation is declined',()=>{
+ window.confirm.mockReturnValue(false);
+ render(<ManualInvoiceEntryForm items={[]} onClose={vi.fn()}/>);
+ fireEvent.change(screen.getByLabelText('Número da nota'),{target:{value:'123'}});
+ fireEvent.submit(screen.getByRole('button',{name:'Registrar nota manual'}).closest('form'));
+ expect(api.post).not.toHaveBeenCalled();
+ expect(screen.getByLabelText('Número da nota')).toHaveValue('123');
+});
+it('edits an existing note with its revision and keeps the same request after a lost response',async()=>{
+ const item={_id:'11111111-1111-1111-1111-111111111111',nome:'Coca',unidade:'UN',ativo:true};
+ api.put.mockRejectedValueOnce(new Error('Resposta perdida')).mockResolvedValueOnce({data:{id:'entry'}});
+ const invoice={id:'note',revision:2,origem:'MANUAL',numero:'123',serie:'1',emitente_nome:'Fornecedor',emitente_documento:'12345678000195',emitida_em:'2026-01-01T13:00:00Z',total:96,destinatario_nome:'',destinatario_documento:'',movement:{ocorrido_em:'2026-01-01T13:00:00Z',observacoes:'Conferir'},itens:[{descricao:'Coca pacote',codigo:'C',unidade_nf:'PCT',quantidade_nf:2,valor_unitario:48,valor_total:96,stock_item_id:item._id,quantidade_recebida:2,fator:12}]};
+ const close=vi.fn();render(<ManualInvoiceEntryForm initialInvoice={invoice} items={[item]} onClose={close}/>);
+ fireEvent.change(screen.getByLabelText('Quantidade recebida do item 1'),{target:{value:'3'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar alterações'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('Resposta perdida');
+ fireEvent.click(screen.getByRole('button',{name:'Salvar alterações'}));
+ await waitFor(()=>expect(close).toHaveBeenCalled());
+ expect(api.put.mock.calls[0]).toEqual(api.put.mock.calls[1]);
+ expect(api.put.mock.calls[0]).toEqual(['/entradas-nfe/note',expect.objectContaining({revision:2,lines:[expect.objectContaining({quantity:'3',factor:'12'})]})]);
+ expect(api.post).not.toHaveBeenCalled();
+});

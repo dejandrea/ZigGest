@@ -1,0 +1,95 @@
+import React from 'react';
+import {beforeEach,it,expect,vi} from 'vitest';
+import {render,screen,fireEvent,waitFor} from '@testing-library/react';
+import Produtos from './Produtos';
+const api=vi.hoisted(()=>({get:vi.fn(),post:vi.fn(),put:vi.fn()}));
+vi.mock('../services/api',()=>({default:api}));
+const rows=[{codigoProduto:1,nome:'Arroz',codigoBarras:'0012345678905',categoria:'Alimentos',unidade:'KG',custo:5,precoVenda:8,ativo:true},{codigoProduto:2,nome:'Café',codigoBarras:'',categoria:'Bebidas',unidade:'UN',custo:10,precoVenda:15,ativo:false}];
+beforeEach(()=>{vi.clearAllMocks();api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:rows}));api.post.mockResolvedValue({data:{}});api.put.mockResolvedValue({data:{}});});
+it('keeps the dialog open for consecutive registrations and closes on ordinary save',async()=>{
+ render(<Produtos/>);await screen.findByText('Arroz');
+ fireEvent.click(screen.getByRole('button',{name:/Novo produto/}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar e continuar'})).toBeEnabled());
+ fireEvent.change(screen.getByLabelText('Nome do produto'),{target:{value:'Primeiro'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar e continuar'}));
+ await waitFor(()=>expect(screen.getByLabelText('Nome do produto')).toHaveValue(''));
+ expect(screen.getByRole('dialog')).toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Nome do produto'),{target:{value:'Segundo'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
+ await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+ expect(api.post).toHaveBeenCalledTimes(2);
+});
+it('ordena os recentes e filtra por código de barras ou situação',async()=>{
+ render(<Produtos/>);await screen.findByText('Arroz');
+ expect(screen.getAllByRole('row')[1]).toHaveTextContent('Café');
+ fireEvent.change(screen.getByLabelText('Buscar produtos'),{target:{value:'001234'}});
+ expect(screen.queryByText('Café')).not.toBeInTheDocument();
+ fireEvent.click(screen.getByText('Limpar filtros'));
+ fireEvent.change(screen.getByLabelText('Filtrar produtos'),{target:{value:'inactive'}});
+ expect(screen.queryByText('Arroz')).not.toBeInTheDocument();
+});
+it('cadastra sem código de barras e com unidade e preços padrão',async()=>{
+ render(<Produtos/>);await screen.findByText('Arroz');
+ fireEvent.click(screen.getByRole('button',{name:/Novo produto/}));
+ expect(screen.getByLabelText('Código de barras (opcional)')).not.toBeRequired();
+ expect(screen.getByLabelText('Código de barras (opcional)')).toHaveAttribute('type','text');
+ fireEvent.change(screen.getByLabelText('Nome do produto'),{target:{value:'Produto avulso'}});
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar produto'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/produtos',expect.objectContaining({nome:'Produto avulso',codigoBarras:'',unidade:'UN',custo:'0',precoVenda:'0',ativo:true})));
+ await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+});
+it('mantém os dados após duplicidade e permite corrigir o código',async()=>{
+ api.post.mockRejectedValueOnce(new Error('Código de barras já cadastrado'));
+ render(<Produtos/>);await screen.findByText('Arroz');
+ fireEvent.click(screen.getByRole('button',{name:/Novo produto/}));
+ fireEvent.change(screen.getByLabelText('Nome do produto'),{target:{value:'Produto novo'}});
+ fireEvent.change(screen.getByLabelText('Código de barras (opcional)'),{target:{value:'0012345678905'}});
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar produto'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
+ expect(await screen.findByRole('alert')).toHaveTextContent('já cadastrado');
+ expect(screen.getByLabelText('Nome do produto')).toHaveValue('Produto novo');
+ fireEvent.change(screen.getByLabelText('Código de barras (opcional)'),{target:{value:'0012345678906'}});
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar produto'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
+ await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+ expect(api.post).toHaveBeenLastCalledWith('/produtos',expect.objectContaining({codigoBarras:'0012345678906'}));
+});
+it('edita preços, limpa o código opcional e inativa sem excluir',async()=>{
+ render(<Produtos/>);await screen.findByText('Arroz');
+ fireEvent.click(screen.getByRole('button',{name:'Editar produto Arroz'}));
+ fireEvent.change(screen.getByLabelText('Código de barras (opcional)'),{target:{value:''}});
+ fireEvent.change(screen.getByLabelText('Preço de venda (R$)'),{target:{value:'12.50'}});
+ fireEvent.change(screen.getByLabelText('Situação'),{target:{value:'false'}});
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar produto'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
+ await waitFor(()=>expect(api.put).toHaveBeenCalledWith('/produtos/1',expect.objectContaining({codigoBarras:'',precoVenda:'12.50',ativo:false})));
+});
+it('mostra erro de consulta sem tratar como lista vazia',async()=>{
+ api.get.mockRejectedValue(new Error('Offline'));render(<Produtos/>);
+ expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar');
+ expect(screen.queryByText(/Nenhum produto cadastrado/)).not.toBeInTheDocument();
+});
+it('configures a pack to consume twelve units of a shared stock item',async()=>{
+ const item='11111111-1111-1111-1111-111111111111';
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[],balances:[]}:path==='/insumos'?[{_id:item,nome:'Coca lata',unidade:'UN',ativo:true}]:rows}));
+ render(<Produtos/>);await screen.findByText('Arroz');
+ fireEvent.click(screen.getByRole('button',{name:/Novo produto/}));
+ fireEvent.change(screen.getByLabelText('Nome do produto'),{target:{value:'Pack 12'}});
+ await waitFor(()=>expect(screen.getByRole('button',{name:/Adicionar insumo/})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:/Adicionar insumo/}));
+ fireEvent.change(screen.getByLabelText('Insumo 1'),{target:{value:item}});
+ fireEvent.change(screen.getByLabelText('Consumo 1'),{target:{value:'12'}});
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar produto'})).toBeEnabled());
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
+ await waitFor(()=>expect(api.post).toHaveBeenCalledWith('/produtos',expect.objectContaining({nome:'Pack 12',componentes:[{stock_item_id:item,quantidade:'12'}]})));
+});
+it('saves the sector used by PDV and comandas, defaulting to principal',async()=>{
+ api.get.mockImplementation(path=>Promise.resolve({data:path==='/estoques'?{locations:[{id:'11111111-1111-4111-8111-111111111111',nome:'Cozinha',ativo:true}],balances:[]}:rows}));
+ render(<Produtos/>);await screen.findByText('Arroz');fireEvent.click(screen.getByRole('button',{name:'Editar produto Arroz'}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Salvar produto'})).toBeEnabled());
+ expect(screen.getByLabelText('Estoque de saída')).toHaveValue('');
+ fireEvent.change(screen.getByLabelText('Estoque de saída'),{target:{value:'11111111-1111-4111-8111-111111111111'}});
+ fireEvent.click(screen.getByRole('button',{name:'Salvar produto'}));
+ await waitFor(()=>expect(api.put).toHaveBeenCalledWith('/produtos/1',expect.objectContaining({estoqueSaidaId:'11111111-1111-4111-8111-111111111111'})));
+});

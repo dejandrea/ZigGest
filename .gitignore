@@ -386,3 +386,17 @@ gradle-app.setting
 # End of https://www.toptal.com/developers/gitignore/api/node,react,reactnative
 
 comandos.txt
+# Security: private environments and local recovery
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+.local-recovery/
+.recovery-location
+
+# Residual dependencies from previous attempt (files locked locally)
+/sgs-v2/
+
+# Private migration exports and reports containing customer data
+.migration-private/

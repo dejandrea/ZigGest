@@ -1,0 +1,5 @@
+.production-input{display:grid;grid-template-columns:minmax(180px,2fr) 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:12px}
+.production-input label{min-width:0}.production-input button{margin-bottom:4px}
+.production-recipes{padding:20px;margin-bottom:24px}.production-recipes article{display:flex;gap:16px;justify-content:space-between;align-items:center;padding:16px 0;border-top:1px solid #d8e3ed}.production-recipes article p{margin:6px 0}
+.production-result{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}.production-result:last-child{margin-bottom:0}
+@media(max-width:760px){.production-input{grid-template-columns:1fr 1fr}.production-input label:first-child{grid-column:1/-1}.production-recipes article{align-items:flex-start;flex-direction:column}}

@@ -1,0 +1,43 @@
+begin;
+do $$begin perform set_config('request.jwt.claim.sub',(select id::text from auth.users where lower(email)='dejandrea@gmail.com'),true);end $$;
+set local role authenticated;
+do $$
+declare item uuid;other uuid;inv uuid:=gen_random_uuid();initial_inv uuid:=gen_random_uuid();result jsonb;mid uuid;rev integer;
+begin
+ insert into public.stock_items(nome,unidade) values('Fixture inventory cola','UN') returning id into item;
+ insert into public.stock_items(nome,unidade) values('Fixture inventory water','UN') returning id into other;
+ perform public.inventory_operation(initial_inv,'OPEN',null,jsonb_build_object('kind','INITIAL','item_id',item,'location_id',(select id from public.stock_locations where principal),'descricao','Fixture initial'));
+ begin perform public.inventory_operation(initial_inv,'SAVE',0,jsonb_build_object('lines',jsonb_build_array(jsonb_build_object('item_id',item,'contado',-1))));raise exception 'FAIL: negative count';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
+ begin perform public.inventory_operation(initial_inv,'SAVE',0,jsonb_build_object('lines',jsonb_build_array(jsonb_build_object('item_id',item,'contado',1.0001))));raise exception 'FAIL: excessive precision';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
+ if (select count(*) from public.stock_inventory_lines where inventory_id=initial_inv)<>1 then raise exception 'Individual scope failed';end if;
+ perform public.inventory_operation(initial_inv,'SAVE',0,jsonb_build_object('lines',jsonb_build_array(jsonb_build_object('item_id',item,'contado',24))));
+ if (select saldo from public.stock_items where id=item)<>0 then raise exception 'Draft changed stock';end if;
+ result:=public.inventory_operation(initial_inv,'CONFIRM',1,'{}');mid:=(result->>'movement_id')::uuid;
+ perform public.inventory_operation(initial_inv,'CONFIRM',1,'{}');
+ if (select saldo from public.stock_items where id=item)<>24 or (select count(*) from public.stock_movement_lines where movement_id=mid)<>1 then raise exception 'Initial or idempotence failed';end if;
+ begin perform public.inventory_operation(gen_random_uuid(),'OPEN',null,jsonb_build_object('kind','INITIAL','item_id',item,'location_id',(select id from public.stock_locations where principal),'descricao','Invalid initial'));raise exception 'FAIL: initial allowed existing history';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
+ begin perform public.inventory_operation(initial_inv,'SAVE',2,'{}');raise exception 'FAIL: edit confirmed';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
+ perform public.inventory_operation(inv,'OPEN',null,jsonb_build_object('kind','COUNT','descricao','Fixture general','location_id',(select id from public.stock_locations where principal)));
+ if not exists(select 1 from public.stock_inventory_lines where inventory_id=inv and stock_item_id=other) then raise exception 'General scope failed';end if;
+ perform public.inventory_operation(inv,'SAVE',0,jsonb_build_object('lines',(select jsonb_agg(jsonb_build_object('item_id',stock_item_id,'contado',case when stock_item_id=item then 0 else null end)) from public.stock_inventory_lines where inventory_id=inv)));
+ begin perform public.inventory_operation(inv,'CANCEL',0,'{}');raise exception 'FAIL: stale revision';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
+ perform public.record_stock_movement(gen_random_uuid(),'ENTRADA',item,null,2,1,'Fixture concurrent entry');
+ begin perform public.inventory_operation(inv,'CONFIRM',1,'{}');raise exception 'FAIL: concurrent stock overwritten';exception when raise_exception then if SQLERRM like 'FAIL:%' then raise;end if;end;
+ perform public.inventory_operation(inv,'REBASE',1,'{}');
+ if (select contado from public.stock_inventory_lines where inventory_id=inv and stock_item_id=item) is not null then raise exception 'Changed count not cleared';end if;
+ perform public.inventory_operation(inv,'SAVE',2,jsonb_build_object('lines',(select jsonb_agg(jsonb_build_object('item_id',stock_item_id,'contado',case when stock_item_id=item then 0 else null end)) from public.stock_inventory_lines where inventory_id=inv)));
+ result:=public.inventory_operation(inv,'CONFIRM',3,'{}');mid:=(result->>'movement_id')::uuid;
+ if (select saldo from public.stock_items where id=item)<>0 or (select saldo from public.stock_items where id=other)<>0 then raise exception 'Zero or uncounted handling failed';end if;
+ if (select quantidade from public.stock_movement_lines where movement_id=mid and stock_item_id=item)<>-26 then raise exception 'Wrong inventory delta';end if;
+ begin update public.stock_items set saldo=999 where id=other;raise exception 'FAIL: direct stock update';exception when insufficient_privilege then null;end;
+ begin update public.stock_inventories set status='DRAFT' where id=inv;raise exception 'FAIL: direct inventory update';exception when insufficient_privilege then null;end;
+end $$;
+reset role;
+do $$begin perform set_config('request.jwt.claim.sub',gen_random_uuid()::text,true);end $$;
+set local role authenticated;
+do $$begin
+ if exists(select 1 from public.stock_inventories) then raise exception 'Unauthorized read';end if;
+ begin perform public.inventory_operation(gen_random_uuid(),'OPEN',null,'{"kind":"COUNT","descricao":"Unauthorized"}');raise exception 'FAIL: unauthorized operation';exception when insufficient_privilege then null;end;
+end $$;
+rollback;
+select 'inventory count tests passed' as result;

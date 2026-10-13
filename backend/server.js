@@ -25,7 +25,7 @@ app.use('/mesas', mesaRoutes);
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('MongoDB conectado!'))
-  .catch((err) => console.error('Erro ao conectar MongoDB', err));
+  .catch(() => console.error('Erro ao conectar MongoDB. Verifique a configuração e o acesso ao banco.'));
 
 // Importar e usar as rotas
 const indexRoutes = require('./routes/index');
