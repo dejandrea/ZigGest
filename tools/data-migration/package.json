@@ -11,7 +11,10 @@
     "prepare:target": "node prepare-target.mjs",
     "update:target": "node update-target.mjs",
     "verify:target": "node verify-target.mjs",
-    "test:target": "node test-target.mjs"
+    "test:target": "node test-target.mjs",
+    "plan:import": "node plan-import.mjs",
+    "import:target": "node import-target.mjs",
+    "verify:import": "node verify-import.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.3",
