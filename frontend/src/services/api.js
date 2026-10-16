@@ -7,6 +7,7 @@ import {manualInvoicePayload} from './manualInvoice';
 import {decimalMoney,sumMoney,subtractMoney} from './decimalMoney';
 import {paymentMethods,payablePayload,payableFromRow} from './payables';
 import {financePayload,settledAmount} from './finance';
+import {receivablesFromRows} from './receivables';
 import { stockFromRow,stockToRow,stockQuantity,componentsToRows,productFromRow, productToRow, supplierFromRow, supplierToRow, customerFromRow, customerToRow, ledgerFromRow, ledgerToRow, mesaFromRow, itemFromRow } from './dataMapping';
 
 function client() {
@@ -45,8 +46,9 @@ function route(path) { return path.split('/').filter(Boolean); }
 const operationColumns='id,tipo,valor,data,descricao,conta_id,destino_id,categoria_id,forma_id,parcela_id,debito_id,credito_id,estorno_de,motivo,actor_id,created_at';
 const operations=()=>all('financial_operations','created_at',operationColumns);
 const api = {
-  async get(path) {
+  async get(path, options = {}) {
     const [resource, id, child] = route(path);
+    if(resource==='logs')return {data:await result(client().rpc('operation_logs_report',{p_filters:{...(options.params??{}),...(id?{id}:{})}}))};
     if(resource==='destinatarios')return {data:(await all('invoice_recipients','codigo_destinatario')).map(recipientFromRow)};
     if(resource==='entradas-destinatarios'){
       const [invoices,movements,recipients]=await Promise.all([all('stock_invoices','emitida_em','id,numero,serie,emitente_nome,emitente_documento,destinatario_nome,destinatario_documento,recipient_id,emitida_em,total,origem,created_at'),all('stock_movements','created_at','id,tipo,invoice_id,ocorrido_em'),api.get('/destinatarios')]);
@@ -151,7 +153,7 @@ const api = {
     if (resource === 'contas') {
       const [rows, customers,ops] = await Promise.all([all('customer_ledger','codigo_conta'), all('customers','codigo_cliente'),operations()]);
       const filtered = id ? rows.filter(row => row.codigo_conta === code(id)) : rows;
-      return { data: filtered.map(row => {const settled=settledAmount(ops,row.entry_type==='DEBIT'?'debito_id':'credito_id',row.id);return {...ledgerFromRow(row,customers),categoriaId:row.categoria_id??'',financeOperationId:row.financial_operation_id,locked:!!row.financial_operation_id||ops.some(o=>o.debito_id===row.id||o.credito_id===row.id),baixado:settled,aberto:Math.max(0,subtractMoney(row.amount,settled)),saldoCliente:Number(customers.find(c=>c.codigo_cliente===row.customer_codigo)?.total_pendente??0)};}) };
+      return { data: receivablesFromRows(filtered, customers, ops) };
     }
     if (resource === 'mesas' || resource === 'comandas') {
       if (id && child === 'itens') {
@@ -218,7 +220,7 @@ const api = {
     }
     if (resource === 'fornecedores') return {data:supplierFromRow(await result(client().from('suppliers').insert(supplierToRow(body)).select().single()))};
     if (resource === 'clientes') {
-      const row = await result(client().from('customers').insert(customerToRow(body)).select().single());
+      const row = await result(client().from('customers').insert(customerToRow({...body,apelido:body.apelido ?? body.nome})).select().single());
       return { data: customerFromRow(row) };
     }
     if (resource === 'contas') {

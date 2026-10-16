@@ -30,7 +30,7 @@ export default function AppLayout() {
             <button className={'app-group-toggle'+(active?' has-active-item':'')} aria-expanded={expanded} aria-controls={id} onClick={()=>setExpandedGroup(expanded?null:group.title)}>
               <Icon name={group.items[0].icon}/><span>{group.title}</span><span className="app-group-chevron" aria-hidden="true">{expanded?'\u2303':'\u2304'}</span>
             </button>
-            <div id={id} className="app-submenu" hidden={!expanded}>{group.items.map(item=><button key={item.label} aria-label={item.label+(!item.path?' Em breve':'')} disabled={!item.path} aria-current={item.path===pathname?'page':undefined} onClick={()=>item.path&&go(item.path)}><Icon name={item.icon}/><span>{item.label}</span>{!item.path&&<small>Em breve</small>}</button>)}</div>
+            <div id={id} className="app-submenu" hidden={!expanded}>{group.items.filter(item=>!item.admin||isAdmin).map(item=><button key={item.label} aria-label={item.label+(!item.path?' Em breve':'')} disabled={!item.path} aria-current={item.path===pathname?'page':undefined} onClick={()=>item.path&&go(item.path)}><Icon name={item.icon}/><span>{item.label}</span>{!item.path&&<small>Em breve</small>}</button>)}</div>
           </section>;
         })}
       </nav>

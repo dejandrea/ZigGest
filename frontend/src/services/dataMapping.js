@@ -14,6 +14,9 @@ export function customerToRow(body) {
   for (const key of ['nome','apelido','telefone','email','endereco','status','observacoes']) {
     if (body[key] !== undefined) result[key] = body[key];
   }
+  if (body.nome !== undefined && body.apelido !== undefined && !String(body.apelido ?? '').trim()) {
+    result.apelido = body.nome;
+  }
   if (body.ativo !== undefined) result.ativo = boolean(body.ativo);
   if (body.limite !== undefined) {
     result.limite = Number(body.limite);

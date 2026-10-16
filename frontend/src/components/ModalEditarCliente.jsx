@@ -1,3 +1,4 @@
+import MoneyInput from './MoneyInput';
 import ContactInput from './ContactInput';
 import React, { useState, useEffect } from 'react';
 import useOperation from '../hooks/useOperation';
@@ -67,7 +68,7 @@ const ModalEditarCliente = ({ cliente, onClose, onSuccess }) => {
                         <option value="true">Sim</option>
                         <option value="false">Não</option>
                     </select></label>
-                    <label>Limite<input type="number" min="0" step="0.01" name="limite" aria-label="Limite" value={form.limite} onChange={handleChange} /></label>
+                    <label>Limite<MoneyInput type="number" min="0" step="0.01" name="limite" aria-label="Limite" value={form.limite} onChange={handleChange} /></label>
                     <label>Observações<textarea name="observacoes" aria-label="Observacoes" value={form.observacoes} onChange={handleChange} /></label>
                     <div className="modal-buttons">
                         <Botao disabled={busy} tamanho='xxsm' cor='terciario' onClick={excluir}>Excluir</Botao>

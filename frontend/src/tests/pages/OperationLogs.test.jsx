@@ -1,0 +1,47 @@
+import React from 'react';
+import {beforeEach,expect,it,vi} from 'vitest';
+import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
+import OperationLogs from '../../pages/OperationLogs';
+const mock=vi.hoisted(()=>({get:vi.fn()}));
+vi.mock('../../services/api',()=>({default:mock}));
+const row={id:'9007199254740999',occurredAt:'2026-10-16T02:30:00Z',actor:'Administrador',entity:'public.customers',action:'UPDATE',description:'Márcio',reference:'54'};
+const page={rows:[row],nextCursor:'9007199254740999',entities:['public.customers'],actors:[{id:'actor',name:'Administrador'}]};
+beforeEach(()=>{vi.clearAllMocks();mock.get.mockResolvedValue({data:page});});
+it('lists recent operations, filters on submit and uses the exact pagination cursor',async()=>{
+ render(<OperationLogs/>);await screen.findByText('Márcio');
+ expect(screen.getByText('15/10/2026, 23:30:00')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Próxima'}));
+ await waitFor(()=>expect(mock.get).toHaveBeenLastCalledWith('/logs',{params:expect.objectContaining({before:'9007199254740999'})}));
+ await waitFor(()=>expect(screen.getByRole('button',{name:'Filtrar'})).toBeEnabled());
+ const calls=mock.get.mock.calls.length;
+ fireEvent.change(screen.getByLabelText('Buscar registro'),{target:{value:'Márcio'}});
+ fireEvent.change(screen.getByLabelText('Área'),{target:{value:'public.customers'}});
+ fireEvent.change(screen.getByLabelText('Ação'),{target:{value:'UPDATE'}});
+ expect(mock.get).toHaveBeenCalledTimes(calls);
+ fireEvent.click(screen.getByRole('button',{name:'Filtrar'}));
+ await waitFor(()=>expect(mock.get).toHaveBeenLastCalledWith('/logs',{params:expect.objectContaining({search:'Márcio',entity:'public.customers',action:'UPDATE'})}));
+ expect(mock.get.mock.calls.at(-1)[1].params).not.toHaveProperty('before');
+ expect(screen.getByText('Página 1')).toBeInTheDocument();
+});
+it('loads details on demand and shows only changed fields',async()=>{
+ mock.get.mockImplementation(path=>Promise.resolve({data:path==='/logs'?page:{...row,before:{nome:'Márcio',apelido:'Marcio',ativo:true},after:{nome:'Márcio',apelido:'Marcinho',ativo:false}}}));
+ render(<OperationLogs/>);await screen.findByText('Márcio');
+ fireEvent.click(screen.getByRole('button',{name:'Ver detalhes do registro '+row.id}));
+ const dialog=await screen.findByRole('dialog');
+ await within(dialog).findByText('Marcinho');
+ expect(within(dialog).getByText('Marcio')).toBeInTheDocument();
+ expect(within(dialog).getByText('Não')).toBeInTheDocument();
+ expect(within(dialog).queryByText('Nome')).not.toBeInTheDocument();
+ expect(mock.get).toHaveBeenCalledWith('/logs/'+row.id);
+ fireEvent.click(within(dialog).getByRole('button',{name:'Fechar detalhes'}));
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+it('separates unavailable data from an empty result and rejects reversed dates',async()=>{
+ mock.get.mockRejectedValueOnce(new Error('Falha na consulta'));
+ render(<OperationLogs/>);expect(await screen.findByRole('alert')).toHaveTextContent('Falha na consulta');
+ expect(screen.queryByText('Nenhum registro encontrado para os filtros.')).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Data inicial'),{target:{value:'2026-10-16'}});
+ fireEvent.change(screen.getByLabelText('Data final'),{target:{value:'2026-10-15'}});
+ fireEvent.click(screen.getByRole('button',{name:'Filtrar'}));
+ expect(screen.getByRole('alert')).toHaveTextContent('A data inicial');expect(mock.get).toHaveBeenCalledTimes(1);
+});

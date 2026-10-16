@@ -1,4 +1,5 @@
 import React from 'react';
+import OperationLogs from './pages/OperationLogs';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import FinancialSettings from './pages/FinancialSettings';
 import FinancialMovements from './pages/FinancialMovements';
@@ -56,7 +57,7 @@ export default function App() {
       <Route path="/relatorios/estoque" element={<RelatorioEstoque/>}/>
       <Route path="/relatorios/producao" element={<Producao report/>}/>
       <Route path="/relatorios/entradas-destinatarios" element={<EntradasDestinatarios/>}/>
-      <Route path="/relatorios/logs" element={<ReportComingSoon title="Registros de operações" description="Histórico de ações, responsáveis e alterações no sistema."/>}/>
+      <Route element={<ProtectedRoute admin/>}><Route path="/relatorios/logs" element={<OperationLogs/>}/></Route>
       <Route path="/relatorios/vendas-notas" element={<ReportComingSoon title="Vendas e notas fiscais" description="Vendas com nota fiscal gerada e sem nota fiscal gerada."/>}/>
       <Route path="/comandas" element={<Comandas/>}/>
       <Route path="/pdv" element={<Comandas pdv/>}/>

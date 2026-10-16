@@ -1,3 +1,4 @@
+import MoneyInput from './MoneyInput';
 import React, { useState, useEffect } from 'react';
 import useOperation from '../hooks/useOperation';
 import api from '../services/api.js';
@@ -118,7 +119,7 @@ const ModalNovaConta = ({ onClose, onSuccess }) => {
                     </select>
 
                     <label>Valor:</label>
-                    <input
+                    <MoneyInput
                         type="number" min="0.000001" step="0.000001"
                         placeholder="Valor"
                         value={valor}

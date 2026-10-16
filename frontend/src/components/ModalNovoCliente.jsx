@@ -1,3 +1,4 @@
+import MoneyInput from './MoneyInput';
 import ContactInput from './ContactInput';
 import SaveAndContinue,{continuesRegistration,focusRegistration} from './SaveAndContinue';
 import React, { useState } from 'react';
@@ -62,7 +63,7 @@ const ModalNovoCliente = ({ onClose, onSuccess, initialName='' }) => {
             <option value="bloqueado">Bloqueado</option>
             <option value="liberado">Liberado</option>
           </select></label>
-          <label>Limite<input type="number" min="0" step="0.01" name="limite" aria-label="Limite" placeholder="Limite" value={form.limite} onChange={handleChange} /></label>
+          <label>Limite<MoneyInput type="number" min="0" step="0.01" name="limite" aria-label="Limite" placeholder="Limite" value={form.limite} onChange={handleChange} /></label>
           <label>Observações<textarea name="observacoes" aria-label="Observacoes" placeholder="Observações" value={form.observacoes} onChange={handleChange} /></label>
           <div className="modal-buttons">
             <Botao tipo='submit' disabled={busy} tamanho='xxsm' cor='terciario'>Salvar</Botao><SaveAndContinue disabled={busy}/>

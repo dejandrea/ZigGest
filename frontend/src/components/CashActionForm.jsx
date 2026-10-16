@@ -1,3 +1,4 @@
+import MoneyInput from './MoneyInput';
 import React,{useState} from 'react';
 import api from '../services/api';
 import useOperation from '../hooks/useOperation';
@@ -22,7 +23,7 @@ export default function CashActionForm({action,session,sale,accounts,onClose,onS
   {error&&<p role="alert" className="users-message users-error">{error}</p>}
   <p className="product-note">{movement?`Dinheiro disponível no caixa: ${money(session.expected_cash)}.`:action==='CANCEL'?'Os pagamentos desta venda serão estornados e os débitos a prazo serão anulados. O histórico será preservado.':'Os pagamentos serão estornados e o consumo irá para uma comanda aberta, mantendo o registro da venda. Será necessário pagar novamente ao encerrar a comanda.'}</p>
   <form onSubmit={save}><fieldset className="product-fields" disabled={busy}>
-   {movement&&<><label>Valor<input required type="number" min="0.000001" step="0.000001" max={action==='WITHDRAW'?session.expected_cash:undefined} value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>{action==='WITHDRAW'?'Conta de destino':'Conta de origem'}<select required value={account} onChange={e=>setAccount(e.target.value)}><option value="">Selecione</option>{accounts.filter(a=>a.ativo&&a.id!==session.conta_id).map(a=><option key={a.id} value={a.id}>{a.nome} · {money(a.saldo)}</option>)}</select></label></>}
+   {movement&&<><label>Valor<MoneyInput required type="number" min="0.000001" step="0.000001" max={action==='WITHDRAW'?session.expected_cash:undefined} value={amount} onChange={e=>setAmount(e.target.value)}/></label><label>{action==='WITHDRAW'?'Conta de destino':'Conta de origem'}<select required value={account} onChange={e=>setAccount(e.target.value)}><option value="">Selecione</option>{accounts.filter(a=>a.ativo&&a.id!==session.conta_id).map(a=><option key={a.id} value={a.id}>{a.nome} · {money(a.saldo)}</option>)}</select></label></>}
    <label className="product-wide">Motivo<textarea required minLength={3} maxLength={2000} value={reason} onChange={e=>setReason(e.target.value)}/></label><div className="users-form-actions product-wide"><button type="button" className="users-secondary" onClick={close}>Voltar</button><button className="users-primary">Confirmar {action==='WITHDRAW'?'sangria':action==='SUPPLY'?'suprimento':action==='CANCEL'?'cancelamento':'reabertura'}</button></div>
   </fieldset></form>
  </div></FormModal>;

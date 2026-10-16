@@ -1,3 +1,4 @@
+import MoneyInput from './MoneyInput';
 import React,{useEffect,useRef,useState} from 'react';
 import {moneyText,moneyUnits} from '../services/decimalMoney';
 import api from '../services/api';
@@ -27,7 +28,7 @@ export default function FinancialOperationForm({initialValues={},credits=[],onCl
   {form.tipo==='ALLOCATION'&&<p>Vincular um crédito existente reduz o saldo deste débito sem registrar dinheiro novamente.</p>}
   <form onSubmit={save}><fieldset disabled={busy||loading||!!loadError} className="product-fields">
    {form.tipo==='ALLOCATION'&&<label className="product-wide">Crédito do cliente<select required value={form.creditoId} onChange={e=>{const credit=credits.find(c=>c._id===e.target.value);setForm(prev=>({...prev,creditoId:e.target.value,valor:credit?moneyText(moneyUnits(Math.min(credit.aberto,initial.maxValue??credit.aberto))):prev.valor}));}}><option value="">Selecione</option>{credits.map(c=><option key={c._id} value={c._id}>#{c.codigoConta} — {money(c.aberto)}</option>)}</select></label>}
-   {form.tipo!=='REVERSAL'&&<label>Valor<input required type="number" min="0.000001" max={initial.maxValue??undefined} step="0.000001" value={form.valor} onChange={e=>change('valor',e.target.value)}/></label>}
+   {form.tipo!=='REVERSAL'&&<label>Valor<MoneyInput required type="number" min="0.000001" max={initial.maxValue??undefined} step="0.000001" value={form.valor} onChange={e=>change('valor',e.target.value)}/></label>}
    <label>Data da movimentação<input required type="date" max={today()} min={initial.minDate??undefined} value={form.data} onChange={e=>change('data',e.target.value)}/></label>
    <label className="product-wide">Descrição<input required maxLength={200} value={form.descricao} onChange={e=>change('descricao',e.target.value)}/></label>
    {!noCash&&<>

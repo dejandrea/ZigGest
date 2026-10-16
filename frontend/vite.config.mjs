@@ -6,7 +6,7 @@ export default defineConfig({
   server: { port: 5173 },
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/setupTests.js'],
+    setupFiles: ['./src/tests/setupTests.js'],
     clearMocks: true,
   },
 });

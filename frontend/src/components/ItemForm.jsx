@@ -1,3 +1,4 @@
+import MoneyInput from './MoneyInput';
 import React,{useEffect,useRef,useState} from 'react';
 import api from '../services/api';
 import {productUnits} from '../services/dataMapping';
@@ -76,8 +77,8 @@ export default function ItemForm({item=null,initialValues={},onClose,onSuccess})
    {form.produto&&<>
     <label className="product-wide">Código de barras (opcional)<input value={form.codigoBarras} maxLength={64} onChange={event=>change('codigoBarras',event.target.value)}/></label>
     <label>Categoria<input value={form.categoria} maxLength={100} onChange={event=>change('categoria',event.target.value)}/></label>
-    <label>Custo (R$)<input required type="number" min="0" max="9999999999.99" step="0.000001" value={form.custo} onChange={event=>change('custo',event.target.value)}/></label>
-    <label>Preço de venda (R$)<input required type="number" min="0" max="9999999999.99" step="0.01" value={form.precoVenda} onChange={event=>change('precoVenda',event.target.value)}/></label>
+    <label>Custo (R$)<MoneyInput decimalPlaces={6} required type="number" min="0" max="9999999999.99" step="0.000001" value={form.custo} onChange={event=>change('custo',event.target.value)}/></label>
+    <label>Preço de venda (R$)<MoneyInput required type="number" min="0" max="9999999999.99" step="0.01" value={form.precoVenda} onChange={event=>change('precoVenda',event.target.value)}/></label>
     <label>Estoque de saída<select value={form.estoqueSaidaId} onChange={event=>change('estoqueSaidaId',event.target.value)}><option value="">Principal (padrão)</option>{locations.filter(location=>!location.principal&&(location.ativo||location.id===form.estoqueSaidaId)).map(location=><option key={location.id} value={location.id}>{location.nome}{location.ativo?'':' (inativo)'}</option>)}</select></label>
     <label className="product-wide">Abastecimento / baixa de estoque<select value={form.insumo?(form.abastecimento??'DIRECT'):'DIRECT'} onChange={event=>{setNotice('');setForm(previous=>({...previous,abastecimento:event.target.value,...(event.target.value==='PRODUCTION'?{insumo:true}:{})}));}}><option value="DIRECT">{form.insumo?'Estoque próprio — baixa 1 para 1 na venda':'Consumo direto de insumos — composição na venda'}</option><option value="PRODUCTION">Abastecido por produção — venda baixa o produto acabado</option></select></label>
     {form.insumo&&form.abastecimento==='PRODUCTION'&&<p className="product-wide inventory-preview">Cadastre a ficha técnica em Estoque → Produção. A produção baixa os ingredientes e abastece este item; a venda baixa somente o produto acabado.</p>}
